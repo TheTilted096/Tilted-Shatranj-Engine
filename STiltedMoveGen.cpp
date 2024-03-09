@@ -10,6 +10,8 @@ TheTilted096, 3-8-2024.
 #include <iostream>
 #include <cstdint>
 #include <bitset>
+#include <string>
+#include <chrono>
 
 #define RANK0 255ULL //8th rank
 #define FILE0 72340172838076673ULL //A File
@@ -301,7 +303,7 @@ uint64_t fsinglemoveset(uint8_t start, bool piececolor, uint64_t& white, uint64_
     return 0;
 }
 
-uint64_t* pseudolegal(uint64_t* white, uint64_t* black, bool color, uint8_t mode){ 
+uint64_t* pseudolegal(uint64_t* white, uint64_t* black, bool color){ 
     /*
     mode = 0: standard chess: King Queen Rook Bishop Knight Pawn ALL
     mode = 1: shatranj chess: King Rook Knight Ferz Alfil Pawn ALL
@@ -397,7 +399,7 @@ void printMoveAsBinary(uint32_t move){
     std::cout << '\n';
 }
 
-uint32_t* movesetToMoves(uint8_t start, uint64_t set, uint8_t type, uint64_t* white, uint64_t* black, bool color, uint8_t mode){
+uint32_t* movesetToMoves(uint8_t start, uint64_t set, uint8_t type, uint64_t* white, uint64_t* black, bool color){
     uint8_t* destinations = bitboardToList(set);
     uint32_t* resultMoves = new uint32_t[27];
 
@@ -480,8 +482,8 @@ uint8_t* orderedPieceIndices(uint64_t* side){
     return result;
 }
 
-uint32_t* fullMoveGen(uint64_t* white, uint64_t* black, bool color, uint8_t mode){
-    uint64_t* moveSetList = pseudolegal(white, black, color, mode); //generate the pseudolegal moves
+uint32_t* fullMoveGen(uint64_t* white, uint64_t* black, bool color){
+    uint64_t* moveSetList = pseudolegal(white, black, color); //generate the pseudolegal moves
     uint64_t* fr; //assign friend and enemy pointers
     uint64_t* en;
 
@@ -500,7 +502,7 @@ uint32_t* fullMoveGen(uint64_t* white, uint64_t* black, bool color, uint8_t mode
 
     uint32_t** moveListList = new uint32_t*[bits]; //initialize list of move lists obtained from bboards
     for (int i = 0; i < moveSetList[0]; i++){
-        moveListList[i] = movesetToMoves(startSquares[i + 1], moveSetList[i + 1], pieceIndices[i + 1], white, black, color, mode); 
+        moveListList[i] = movesetToMoves(startSquares[i + 1], moveSetList[i + 1], pieceIndices[i + 1], white, black, color); 
     }
 
     /*// prints all the moves
@@ -612,24 +614,97 @@ void makeMove(uint32_t move, uint64_t*& white, uint64_t*& black, bool forward){
     }
 }
 
-bool isChecked(bool color, uint64_t* white, uint64_t black){
+bool isChecked(bool color, uint64_t* white, uint64_t* black){
+    uint8_t kingsquare = 0;
+    uint64_t* fr;
+    uint64_t* en;
+    if (color){
+        fr = white;
+        en = black;
+    } else {
+        en = white;
+        fr = black;
+    }
+    uint64_t kingbb = fr[0];
+    //printAsBitboard(kingbb);
+    while (kingbb > 1ULL){
+        kingbb >>= 1;
+        kingsquare++;
+    }
+
+    uint64_t phantombitboard;
+    for (int i = 0; i < 5; i++){ //all except pawns
+        phantombitboard = fsinglemoveset(kingsquare, color, white[6], black[6], i);
+        //printAsBitboard(phantombitboard);
+        if (std::bitset<64>(phantombitboard & en[i]).count()){ //if the phantom piece can capture an opposing piece of the same type
+            //std::cout << "\nCheck Received from piece type: " << i << '\n';
+            return true;
+        }
+    }
+
     
+    uint64_t possibleCaptures = genEmptyDiagonal(kingsquare, 1); //initialize
+        int rank = kingsquare >> 3;
+        if (color){
+            possibleCaptures &= (RANK0 << (8 * (rank - 1))); //ensure captures are in correct direction
+        } else {
+            possibleCaptures &= (RANK0 << (8 * (rank + 1)));
+        }
+    if (en[5] & possibleCaptures){
+        return true;
+    }
+
+}
+
+std::string moveToAlgebraic(uint32_t move){
+    uint8_t start = move & 63U;
+    uint8_t end = (move >> 6) & 63U;
+
+    std::string result;
+
+    result += ((start & 7) + 97);
+    result += (8 - (start >> 3)) + 48;
+
+    result += ((end & 7) + 97);
+    result += (8 - (end >> 3)) + 48;
+    
+    if ((move >> 19) & 1U){
+        result += 'q';
+    }
+
+    return result;
 }
 
 uint64_t perft(uint64_t* white, uint64_t* black, int depth, bool color, int ply){
-    uint64_t nodes = 0;
-    if (depth == 0){
+    uint64_t nodes = 0; //initialize
+    if (depth == 0){ //
         return 1ULL;
     }
 
-    uint32_t* moves = fullMoveGen(white, black, color, 1);
+    uint64_t additional = 0;
+
+    uint32_t* moves = fullMoveGen(white, black, color);
     for (int i = 0; i < moves[0]; i++){
         makeMove(moves[i + 1], white, black, 1);
-        nodes += perft(white, black, depth - 1, !color, ply + 1);
+        if (isChecked(color, white, black)){ //if is checked
+            makeMove(moves[i + 1], white, black, 0); //unmake the move
+            //printMoveAsBinary(moves[i + 1]);
+            //std::cout << moveToAlgebraic(moves[i + 1]) << " rejected by check on " << color << '\n';
+            //printSidesBitboard(black);
+
+            continue; //continue to the next iteration. 
+        }
+        additional = perft(white, black, depth - 1, !color, ply + 1);
+        
+        if (ply == 0){
+            std::cout << moveToAlgebraic(moves[i + 1]) << ": " << additional << '\n';
+            //printMoveAsBinary(moves[i + 1]);
+        }
+        
+        nodes += additional;
         makeMove(moves[i + 1], white, black, 0);
     }
     return nodes;
-
 }
 
 

@@ -27,11 +27,29 @@ int main(){
     white[5] = (RANK0 << 48);
     white[6] = (RANK0 << 48) | (RANK0 << 56);
 
+
+    /*
+    //00000000 1 010 0 010 000 0 101000 111001
+    uint32_t b1a3 = 0b00000000101000100000101000111001;
+    makeMove(b1a3, white, black, 1);
     //printSidesBitboard(white);
 
-    for (int i = 0; i < 7; i++){
-        std::cout << perft(white, black, i, 1, 0) << '\n';
-    }
+    //00000000 0 010 0 010 000 0 010000 000001
+    uint32_t b8a6 = 0b00000000001000100000010000000001;
+    makeMove(b8a6, white, black, 1);
+    //printSidesBitboard(black);
+   
+    //00000000 1 010 0 010 000 0 011001 101000
+    uint32_t a3b5 = 0b00000000101000100000011001101000;
+    makeMove(a3b5, white, black, 1);
+
+    /*
+    //00000000 0 101 0 101 000 0 010011 001011
+    uint32_t d7d6 = 0b00000000010101010000010011001011;
+    makeMove(d7d6, white, black, 1);
+    */
+    
+    std::cout << perft(white, black, 6, 1, 0);
 
 
 
