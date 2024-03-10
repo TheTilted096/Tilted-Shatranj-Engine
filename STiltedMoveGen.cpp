@@ -709,7 +709,105 @@ uint64_t perft(uint64_t* white, uint64_t* black, int depth, bool color, int ply)
 
 
 
+int pieceFenIndex(char p){
+    if (p > 64 and p < 91){
+        p += 32;
+    }
+    char orderedpieces[6] = {'k', 'r', 'n', 'q', 'b', 'p'};
+    for (int i = 0; i < 6; i++){
+        if (p == orderedpieces[i]){
+            return i;
+        }
+    }
 
+}
 
+void placeFenPiece(char p, uint64_t*& white, uint64_t*& black, int square){
+    int pieceindex = pieceFenIndex(p);
+    uint64_t piecebb = 1ULL << square;
 
+    if (p > 96){
+        black[pieceindex] |= piecebb;
+        black[6] |= piecebb;
+    }
+    if (p < 91){
+        white[pieceindex] |= piecebb;
+        white[6] |= piecebb;
+    }
 
+}
+
+/*
+Fen Format
+[board setup] [w/b to move] [castling] [en passant] [half move - 50 moves] [full move]
+
+Example: BqNN4/3b4/pN1b4/1b1BN3/3b1PP1/Pr1NP1b1/4P1P1/qkB3KQ w - - 0 1
+*/
+
+void emptyBoard(uint64_t*& white, uint64_t*& black){
+    for (int i = 0; i < 7; i++){
+        white[i] = 0;
+        black[i] = 0;
+    }
+}
+
+uint8_t readFen(std::string fen, uint64_t*& white, uint64_t*& black, bool& toMove){ 
+    emptyBoard(white, black);
+
+    int index = 0; //char by char reader
+    int currSquare = 0;
+    char currChar;
+
+    while (currSquare < 64){
+        currChar = fen[index];
+        if (currChar == '/'){ //if there is a slash, ignore it
+            index++;
+            continue;
+        }
+        if (currChar > 48 and currChar < 57){ //if we encounter a number, move forward that amount
+            index++;
+            currSquare += (currChar - 48);
+            continue;
+        }
+        placeFenPiece(fen[index], white, black, currSquare); //otherwise, assume its a piece and place it
+        currSquare++; //update the square as needed. 
+        index++; //and the index, too. 
+    }
+
+    index++; //skip over a space
+    toMove = fen[index] & 1; //'w' = 119, and 'b' = 98. 
+
+    index += 6; //skip over en passant/castling to get to 1/2 move
+
+    if (index > fen.length()){ //some FEN's don't contain the move counters
+        return 0;
+    }
+
+    std::string hmovestring = "";
+    while (fen[index] != ' '){
+        hmovestring += fen[index];
+        index++;
+    }
+    uint8_t halfmoves = std::stoi(hmovestring);
+
+    return halfmoves;
+}
+
+void setStartPos(uint64_t* white, uint64_t* black, bool& toMove){
+    black[0] = 8ULL;
+    black[1] = 129ULL;
+    black[2] = 66ULL;
+    black[3] = 16ULL;
+    black[4] = 36ULL;
+    black[5] = RANK0 << 8;
+    black[6] = RANK0 | (RANK0 << 8);
+
+    for (int i = 0; i < 5; i++){
+        white[i] = black[i] << 56;
+    }
+
+    white[5] = (RANK0 << 48);
+    white[6] = (RANK0 << 48) | (RANK0 << 56);
+
+    toMove = true; 
+}
