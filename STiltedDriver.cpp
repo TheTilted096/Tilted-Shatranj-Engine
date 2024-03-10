@@ -9,6 +9,8 @@ TheTilted096, 2024.
 #include "STiltedMoveGen.cpp"
 
 int main(){
+    srand(time(0));
+
     bool toMove = 1;
     uint64_t* white = new uint64_t[7];
     uint64_t* black = new uint64_t[7];
@@ -21,7 +23,7 @@ int main(){
             return 0;
         }
         if (command == "uci"){
-            std::cout << "id name Tilted 2\nid author TheTilted096\noption name UCI_Variant type combo default shatranj var shatranj\n";
+            std::cout << "id name Tilted 2\nid author TheTilted096\noption name UCI_Variant type combo default shatranj var shatranj\nuciok\n";
         }
         if (command == "isready"){
             std::cout << "readyok\n";
@@ -67,7 +69,19 @@ int main(){
             */
         }
         if (command.substr(0, 2) == "go"){
-            
+            uint32_t* allMoves = fullMoveGen(white, black, toMove);
+            int randindex;
+            bool isLegal = false;
+            while (!isLegal){
+                randindex = 1 + rand() % allMoves[0]; //select a random index
+                makeMove(allMoves[randindex], white, black, 1); //make the move
+                if (!isChecked(toMove, white, black)){ //if not in check, we can proceed. 
+                    isLegal = true;
+                }
+                makeMove(allMoves[randindex], white, black, 0); //unmake the move
+            }
+
+            std::cout << "bestmove " << moveToAlgebraic(allMoves[randindex]) << '\n';
         }
         if (command.substr(0, 6) == "perft "){
             auto start = std::chrono::steady_clock::now();
