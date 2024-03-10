@@ -1,3 +1,3 @@
 all:
-	g++ "STiltedDriver.cpp" -o stilteddev
+	g++ -O2 -o stilteddev "STiltedDriver.cpp"
 	./stilteddev

@@ -7,11 +7,18 @@ Anyways, this is a library to do movegen.
 TheTilted096, 3-8-2024. 
 */
 
+/*
 #include <iostream>
 #include <cstdint>
 #include <bitset>
 #include <string>
 #include <chrono>
+#include <sstream>
+#include <random>
+#include <ctime>
+*/
+
+#include <bits/stdc++.h>
 
 #define RANK0 255ULL //8th rank
 #define FILE0 72340172838076673ULL //A File
@@ -39,8 +46,14 @@ void printAsBitboard(uint64_t board){
 }
 
 void printSidesBitboard(uint64_t* side){
-    for (int i = 0; i < 7; i++){
-        printAsBitboard(side[i]);
+    for (int i = 0; i < 8; i++){
+        for (int j = 0; j < 7; j++){
+            for (int k = 8 * i; k < 8 * i + 8; k++){
+                std::cout << ((side[j] >> k) & 1);
+            }
+            std::cout << '\t';
+        }
+        std::cout << '\n';
     }
 }
 
@@ -706,8 +719,6 @@ uint64_t perft(uint64_t* white, uint64_t* black, int depth, bool color, int ply)
     }
     return nodes;
 }
-
-
 
 int pieceFenIndex(char p){
     if (p > 64 and p < 91){
