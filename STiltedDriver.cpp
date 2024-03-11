@@ -19,7 +19,9 @@ int main(){
 
     while (true){
         getline(std::cin, command);
-        if (command == "quit"){ //self explanatory; just quit the program. 
+        if (command == "quit"){ //self explanatory; just quit the program.
+            delete[] white;
+            delete[] black; 
             return 0;
         }
         if (command == "uci"){
@@ -110,9 +112,6 @@ int main(){
     std::cout << duration.count() << "ms";
     */
 
-
-    delete[] white;
-    delete[] black;
 
     return 0;
 }
