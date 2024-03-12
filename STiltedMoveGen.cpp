@@ -235,7 +235,7 @@ void filterStraightBlock(uint64_t& set, uint8_t start, bool piececolor, int8_t o
 }
 
 uint8_t* bitboardToList(uint64_t board){
-    int bits = std::bitset<64>(board).count();
+    int bits = __builtin_popcountll(board);
     uint8_t* list = new uint8_t[bits + 1];
     list[0] = bits;
     int b = 0;
@@ -335,7 +335,7 @@ uint64_t* pseudolegal(uint64_t* white, uint64_t* black, bool color){
 
     //std::cout << "Indicator 1\n";
 
-    int total = std::bitset<64>(side[6]).count(); //total number of movesets = number of pieces
+    int total = __builtin_popcountll(side[6]); //total number of movesets = number of pieces
 
     uint64_t* result = new uint64_t[total + 1]; //initialize the result; the first element is how large the list is
     result[0] = total; //we fill that in now. 
@@ -363,7 +363,7 @@ uint64_t* pseudolegal(uint64_t* white, uint64_t* black, bool color){
 uint8_t* orderedStartingSquares(uint64_t* side){
     uint8_t* pieces = 0;
 
-    int total = std::bitset<64>(side[6]).count(); //total number of movesets = number of pieces
+    int total = __builtin_popcountll(side[6]); //total number of movesets = number of pieces
 
     uint8_t* result = new uint8_t[total + 1];
     result[0] = total;
@@ -479,13 +479,13 @@ uint32_t* movesetToMoves(uint8_t start, uint64_t set, uint8_t type, uint64_t* wh
 }
 
 uint8_t* orderedPieceIndices(uint64_t* side){
-    int bits = std::bitset<64>(side[6]).count();
+    int bits = __builtin_popcountll(side[6]);
     uint8_t* result = new uint8_t[bits + 1];
     result[0] = bits;
 
     int index = 1;
     for (int i = 0; i < 6; i++){
-        for (int j = 0; j < std::bitset<64>(side[i]).count(); j++){
+        for (int j = 0; j < __builtin_popcountll(side[i]); j++){
             result[index] = i;
             index++;
         }
@@ -511,7 +511,7 @@ uint32_t* fullMoveGen(uint64_t* white, uint64_t* black, bool color){
     uint8_t* startSquares = orderedStartingSquares(fr); //find the starting squares of each piece in ORDER
     uint8_t* pieceIndices = orderedPieceIndices(fr);
 
-    int bits = std::bitset<64>(fr[6]).count();
+    int bits = __builtin_popcountll(fr[6]);
 
     uint32_t** moveListList = new uint32_t*[bits]; //initialize list of move lists obtained from bboards
     for (int i = 0; i < moveSetList[0]; i++){
@@ -649,7 +649,7 @@ bool isChecked(bool color, uint64_t* white, uint64_t* black){
     for (int i = 0; i < 5; i++){ //all except pawns
         phantombitboard = fsinglemoveset(kingsquare, color, white[6], black[6], i);
         //printAsBitboard(phantombitboard);
-        if (std::bitset<64>(phantombitboard & en[i]).count()){ //if the phantom piece can capture an opposing piece of the same type
+        if (__builtin_popcountll(phantombitboard & en[i])){ //if the phantom piece can capture an opposing piece of the same type
             //std::cout << "\nCheck Received from piece type: " << i << '\n';
             return true;
         }
