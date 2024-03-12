@@ -38,11 +38,14 @@ int evaluate(uint64_t* white, uint64_t* black, bool toMove){
     return 0;
 }
 
-std::string search(uint64_t*& white, uint64_t*& black, bool toMove, int& ev){
+int alphabeta(uint64_t*& white, uint64_t*& black, bool toMove, int alpha, int beta, int depth, uint32_t& bestMove, int ply){
     uint32_t* moves = fullMoveGen(white, black, toMove);
-    int bestScore = -INT_MAX; //initialize to negative INF
-    int currScore;
-    int bestIndex;
+
+    int score;
+
+    if (depth == 0){
+        return evaluate(white, black, toMove);
+    }
 
     for (int i = 0; i < moves[0]; i++){ //for each move
         makeMove(moves[i + 1], white, black, 1); //make the move. 
@@ -50,16 +53,19 @@ std::string search(uint64_t*& white, uint64_t*& black, bool toMove, int& ev){
             makeMove(moves[i + 1], white, black, 0); //unmake the move
             continue;
         }
-        currScore = evaluate(white, black, toMove); //evaluate the position
-        if (currScore > bestScore){ //if it is good, set the best score
-            bestScore = currScore;
-            bestIndex = i + 1; //keep track of the best move thus far for return.
-            
+        score = -alphabeta(white, black, !toMove, -beta, -alpha, depth - 1, bestMove, ply + 1); //do for opp
+        if (score >= beta){ //if opp makes a bad move (they would not do this)
+            makeMove(moves[i + 1], white, black, 0); //unmake the move.
+            return beta;   //  fail hard beta-cutoff
         }
+        if (score > alpha){ //yay best move
+            if (ply == 0){ //if this is the root call, save the best move
+                bestMove = moves[i + 1];
+            }
+            alpha = score; // alpha acts like max in MiniMax  
+        }      
         makeMove(moves[i + 1], white, black, 0); //unmake the move. 
     }
 
-    ev = bestScore;
-
-    return moveToAlgebraic(moves[bestIndex]);
+    return alpha;
 }

@@ -16,8 +16,11 @@ int main(){
     uint64_t* black = new uint64_t[7];
 
     std::string command;
-
+    uint32_t bestMove;
     int boardEval;
+
+    int alpha = -30000; //assume position is bad (you want to increase this)
+    int beta = 30000; //good for your opponent (you want to decrease this)
 
     while (true){
         getline(std::cin, command);
@@ -88,8 +91,8 @@ int main(){
 
             std::cout << "bestmove " << moveToAlgebraic(allMoves[randindex]) << '\n';
             */
-            std::cout << "bestmove " << search(white, black, toMove, boardEval) << '\n';
-            std::cout << "info depth 1 score " << boardEval << '\n';
+            boardEval = alphabeta(white, black, toMove, alpha, beta, 4, bestMove, 0);
+            std::cout << "bestmove " << moveToAlgebraic(bestMove) << '\n';
         }
         if (command.substr(0, 6) == "perft "){
             auto start = std::chrono::steady_clock::now();
@@ -104,8 +107,6 @@ int main(){
             std::cout << "\nBlack's Pieces\n";
             printSidesBitboard(black);
         }
-
-    
     }
 
     /* PERFT SPEED TESTING

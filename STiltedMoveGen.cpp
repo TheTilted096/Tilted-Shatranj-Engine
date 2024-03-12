@@ -7,7 +7,7 @@ Anyways, this is a library to do movegen.
 TheTilted096, 3-8-2024. 
 */
 
-/*
+
 #include <iostream>
 #include <cstdint>
 #include <bitset>
@@ -16,9 +16,8 @@ TheTilted096, 3-8-2024.
 #include <sstream>
 #include <random>
 #include <ctime>
-*/
 
-#include <bits/stdc++.h>
+//#include <bits/stdc++.h>
 #pragma GCC target("popcnt")
 
 #define RANK0 255ULL //8th rank
