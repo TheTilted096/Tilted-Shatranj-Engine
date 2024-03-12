@@ -41,7 +41,7 @@ int evaluate(uint64_t* white, uint64_t* black, bool toMove){
 int alphabeta(uint64_t*& white, uint64_t*& black, bool toMove, int alpha, int beta, int depth, uint32_t& bestMove, int ply){
     uint32_t* moves = fullMoveGen(white, black, toMove);
 
-    int score;
+    int score = -29000;
 
     if (depth == 0){
         return evaluate(white, black, toMove);
@@ -65,6 +65,10 @@ int alphabeta(uint64_t*& white, uint64_t*& black, bool toMove, int alpha, int be
             alpha = score; // alpha acts like max in MiniMax  
         }      
         makeMove(moves[i + 1], white, black, 0); //unmake the move. 
+    }
+
+    if (score == -29000){
+        return score;
     }
 
     return alpha;

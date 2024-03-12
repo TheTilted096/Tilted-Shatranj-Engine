@@ -75,6 +75,9 @@ int main(){
             printSidesBitboard(black);
             */
         }
+        if (command.substr(0, 12) == "position fen"){
+
+        }
         if (command.substr(0, 2) == "go"){
             /* Random Mover (Tilted 2)
             uint32_t* allMoves = fullMoveGen(white, black, toMove);
