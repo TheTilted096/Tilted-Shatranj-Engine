@@ -24,6 +24,7 @@ int main(){
 
     while (true){
         getline(std::cin, command);
+        //std::cout << "command received: " << command << '\n';
         if (command == "quit"){ //self explanatory; just quit the program.
             delete[] white;
             delete[] black; 
@@ -76,7 +77,8 @@ int main(){
             */
         }
         if (command.substr(0, 12) == "position fen"){
-
+            std::cout << command.substr(14) << '\n';
+            readFen(command.substr(14), white, black, toMove);
         }
         if (command.substr(0, 2) == "go"){
             /* Random Mover (Tilted 2)
@@ -94,7 +96,9 @@ int main(){
 
             std::cout << "bestmove " << moveToAlgebraic(allMoves[randindex]) << '\n';
             */
+            //std::cout << "executing 'go'\n";
             boardEval = alphabeta(white, black, toMove, alpha, beta, 4, bestMove, 0);
+            //std::cout << "finished 'go'\n";
             std::cout << "bestmove " << moveToAlgebraic(bestMove) << '\n';
         }
         if (command.substr(0, 6) == "perft "){
@@ -110,7 +114,12 @@ int main(){
             std::cout << "\nBlack's Pieces\n";
             printSidesBitboard(black);
         }
+
+        //std::cout << "command executed: " << command << '\n';
+        //std::cout << "readyok\n";
     }
+
+    //std::cout << "Program Exited\n";
 
     /* PERFT SPEED TESTING
     auto start = std::chrono::steady_clock::now();

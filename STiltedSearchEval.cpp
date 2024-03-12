@@ -39,13 +39,13 @@ int evaluate(uint64_t* white, uint64_t* black, bool toMove){
 }
 
 int alphabeta(uint64_t*& white, uint64_t*& black, bool toMove, int alpha, int beta, int depth, uint32_t& bestMove, int ply){
-    uint32_t* moves = fullMoveGen(white, black, toMove);
-
-    int score = -29000;
+    int score = -29999;
 
     if (depth == 0){
         return evaluate(white, black, toMove);
     }
+
+    uint32_t* moves = fullMoveGen(white, black, toMove);
 
     for (int i = 0; i < moves[0]; i++){ //for each move
         makeMove(moves[i + 1], white, black, 1); //make the move. 
@@ -56,6 +56,7 @@ int alphabeta(uint64_t*& white, uint64_t*& black, bool toMove, int alpha, int be
         score = -alphabeta(white, black, !toMove, -beta, -alpha, depth - 1, bestMove, ply + 1); //do for opp
         if (score >= beta){ //if opp makes a bad move (they would not do this)
             makeMove(moves[i + 1], white, black, 0); //unmake the move.
+            delete[] moves;
             return beta;   //  fail hard beta-cutoff
         }
         if (score > alpha){ //yay best move
@@ -67,9 +68,12 @@ int alphabeta(uint64_t*& white, uint64_t*& black, bool toMove, int alpha, int be
         makeMove(moves[i + 1], white, black, 0); //unmake the move. 
     }
 
-    if (score == -29000){
+    if (score == -29999){
+        delete[] moves;
         return score;
     }
+
+    delete[] moves;
 
     return alpha;
 }
