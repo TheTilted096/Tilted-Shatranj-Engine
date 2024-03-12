@@ -6,7 +6,7 @@ TheTilted096, 2024.
 
 */
 
-#include "STiltedMoveGen.cpp"
+#include "STiltedSearchEval.cpp"
 
 int main(){
     srand(time(0));
@@ -16,6 +16,8 @@ int main(){
     uint64_t* black = new uint64_t[7];
 
     std::string command;
+
+    int boardEval;
 
     while (true){
         getline(std::cin, command);
@@ -71,6 +73,7 @@ int main(){
             */
         }
         if (command.substr(0, 2) == "go"){
+            /* Random Mover (Tilted 2)
             uint32_t* allMoves = fullMoveGen(white, black, toMove);
             int randindex;
             bool isLegal = false;
@@ -84,6 +87,9 @@ int main(){
             }
 
             std::cout << "bestmove " << moveToAlgebraic(allMoves[randindex]) << '\n';
+            */
+            std::cout << "bestmove " << search(white, black, toMove, boardEval) << '\n';
+            std::cout << "info depth 1 score " << boardEval << '\n';
         }
         if (command.substr(0, 6) == "perft "){
             auto start = std::chrono::steady_clock::now();
@@ -111,7 +117,6 @@ int main(){
 
     std::cout << duration.count() << "ms";
     */
-
 
     return 0;
 }

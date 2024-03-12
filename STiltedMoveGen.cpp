@@ -19,6 +19,7 @@ TheTilted096, 3-8-2024.
 */
 
 #include <bits/stdc++.h>
+#pragma GCC target("popcnt")
 
 #define RANK0 255ULL //8th rank
 #define FILE0 72340172838076673ULL //A File
@@ -822,3 +823,5 @@ void setStartPos(uint64_t* white, uint64_t* black, bool& toMove){
 
     toMove = true; 
 }
+
+
