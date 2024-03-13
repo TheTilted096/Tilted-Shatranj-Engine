@@ -38,6 +38,13 @@ int evaluate(uint64_t* white, uint64_t* black, bool toMove){
     return 0;
 }
 
+bool kingBare(uint64_t* white, uint64_t* black, bool toMove){ //returns true if 'toMove' king is bare, false otherwise, and false when both bare.
+    bool b = (black[6] == black[0]);
+    bool w = (white[6] == white[0]);
+
+    return ((!toMove and !w and b) or (toMove and w and !b)); // (black tM and white not bare and black bare) OR (white tM and white bare and black not bare);
+}
+
 int alphabeta(uint64_t*& white, uint64_t*& black, bool toMove, int alpha, int beta, int depth, uint32_t& bestMove, int ply){
     int score = -29999;
 
@@ -49,7 +56,7 @@ int alphabeta(uint64_t*& white, uint64_t*& black, bool toMove, int alpha, int be
 
     for (int i = 0; i < moves[0]; i++){ //for each move
         makeMove(moves[i + 1], white, black, 1); //make the move. 
-        if (isChecked(toMove, white, black)){ //if is checked
+        if (isChecked(toMove, white, black) or kingBare(white, black, toMove)){ //if is checked
             makeMove(moves[i + 1], white, black, 0); //unmake the move
             continue;
         }

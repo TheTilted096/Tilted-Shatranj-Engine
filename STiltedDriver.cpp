@@ -10,6 +10,7 @@ TheTilted096, 2024.
 
 int main(){
     srand(time(0));
+    std::cout << "Tilted 13 by TheTilted096\n";
 
     bool toMove = 1;
     uint64_t* white = new uint64_t[7];
@@ -77,8 +78,8 @@ int main(){
             */
         }
         if (command.substr(0, 12) == "position fen"){
-            std::cout << command.substr(14) << '\n';
-            readFen(command.substr(14), white, black, toMove);
+            //std::cout << command.substr(13) << '\n';
+            readFen(command.substr(13), white, black, toMove);
         }
         if (command.substr(0, 2) == "go"){
             /* Random Mover (Tilted 2)
