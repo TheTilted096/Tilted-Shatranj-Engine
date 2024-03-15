@@ -45,22 +45,22 @@ bool kingBare(uint64_t* white, uint64_t* black, bool toMove){ //returns true if 
     return ((!toMove and !w and b) or (toMove and w and !b)); // (black tM and white not bare and black bare) OR (white tM and white bare and black not bare);
 }
 
-int alphabeta(uint64_t*& white, uint64_t*& black, bool toMove, int alpha, int beta, int depth, uint32_t& bestMove, int ply){
+int alphabeta(uint64_t*& white, uint64_t*& black, bool toMove, int alpha, int beta, int depth, uint32_t& bestMove, int ply, uint64_t*** tables){
     int score = -29999;
 
     if (depth == 0){
         return evaluate(white, black, toMove);
     }
 
-    uint32_t* moves = fullMoveGen(white, black, toMove);
+    uint32_t* moves = fullMoveGen(white, black, toMove, tables);
 
     for (int i = 0; i < moves[0]; i++){ //for each move
         makeMove(moves[i + 1], white, black, 1); //make the move. 
-        if (isChecked(toMove, white, black) or kingBare(white, black, toMove)){ //if is checked
+        if (isChecked(toMove, white, black, tables) or kingBare(white, black, toMove)){ //if is checked
             makeMove(moves[i + 1], white, black, 0); //unmake the move
             continue;
         }
-        score = -alphabeta(white, black, !toMove, -beta, -alpha, depth - 1, bestMove, ply + 1); //do for opp
+        score = -alphabeta(white, black, !toMove, -beta, -alpha, depth - 1, bestMove, ply + 1, tables); //do for opp
         if (score >= beta){ //if opp makes a bad move (they would not do this)
             makeMove(moves[i + 1], white, black, 0); //unmake the move.
             delete[] moves;

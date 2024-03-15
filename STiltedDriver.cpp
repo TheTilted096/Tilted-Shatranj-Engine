@@ -10,7 +10,6 @@ TheTilted096, 2024.
 
 int main(){
     srand(time(0));
-    std::cout << "Tilted 13 by TheTilted096\n";
 
     bool toMove = 1;
     uint64_t* white = new uint64_t[7];
@@ -19,6 +18,10 @@ int main(){
     std::string command;
     uint32_t bestMove;
     int boardEval;
+
+    uint64_t*** tables = generateLookupTables();
+
+    std::cout << "Tilted 13 by TheTilted096\n";
 
     int alpha = -30000; //assume position is bad (you want to increase this)
     int beta = 30000; //good for your opponent (you want to decrease this)
@@ -29,6 +32,7 @@ int main(){
         if (command == "quit"){ //self explanatory; just quit the program.
             delete[] white;
             delete[] black; 
+            deleteLookupTables(tables);
             return 0;
         }
         if (command == "uci"){
@@ -60,13 +64,14 @@ int main(){
                 uint32_t* allMoves;
 
                 for (std::string m : extraMoveList){ //for each move found
-                    allMoves = fullMoveGen(white, black, toMove); //generate all the moves
+                    allMoves = fullMoveGen(white, black, toMove, tables); //generate all the moves
                     for (int i = 0; i < allMoves[0]; i++){ //for each of the moves generated
                         if (moveToAlgebraic(allMoves[i + 1]) == m){ //get their alg representation and compare
                             makeMove(allMoves[i + 1], white, black, 1); //if so, make the move
                             toMove = !toMove; //pass the move
                         }
                     }
+                    delete[] allMoves;
                 }
                 
             }
@@ -79,7 +84,7 @@ int main(){
         }
         if (command.substr(0, 12) == "position fen"){
             //std::cout << command.substr(13) << '\n';
-            readFen(command.substr(13), white, black, toMove);
+            readFen(command.substr(13), white, black, toMove, tables);
         }
         if (command.substr(0, 2) == "go"){
             /* Random Mover (Tilted 2)
@@ -97,14 +102,13 @@ int main(){
 
             std::cout << "bestmove " << moveToAlgebraic(allMoves[randindex]) << '\n';
             */
-            //std::cout << "executing 'go'\n";
-            boardEval = alphabeta(white, black, toMove, alpha, beta, 4, bestMove, 0);
-            //std::cout << "finished 'go'\n";
+            boardEval = alphabeta(white, black, toMove, alpha, beta, 4, bestMove, 0, tables);
+            std::cout << "info depth 4 score cp " << boardEval << '\n';
             std::cout << "bestmove " << moveToAlgebraic(bestMove) << '\n';
         }
         if (command.substr(0, 6) == "perft "){
             auto start = std::chrono::steady_clock::now();
-            std::cout << '\n' << perft(white, black, (int) command[6] - 48, toMove, 0) << " positions\n";
+            std::cout << '\n' << perft(white, black, (int) command[6] - 48, toMove, 0, tables) << " positions\n";
             auto end = std::chrono::steady_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
             std::cout << duration.count() << " ms\n";
@@ -120,17 +124,6 @@ int main(){
         //std::cout << "readyok\n";
     }
 
-    //std::cout << "Program Exited\n";
-
-    /* PERFT SPEED TESTING
-    auto start = std::chrono::steady_clock::now();
-    std::cout << perft(white, black, 6, 1, 0) << " positions\n";
-    auto end = std::chrono::steady_clock::now();
-
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-
-    std::cout << duration.count() << "ms";
-    */
-
+    deleteLookupTables(tables);
     return 0;
 }

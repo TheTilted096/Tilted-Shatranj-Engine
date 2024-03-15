@@ -3,7 +3,7 @@ all:
 	./stilteddev
 
 release:
-	g++ -O2 -static -o stilted-release-u312-ab "STiltedDriver.cpp"
+	g++ -O2 -static -o stilted-release-13+-dev "STiltedDriver.cpp"
 
 devbuild:
 	g++ -O2 -o stilteddev "STiltedDriver.cpp"

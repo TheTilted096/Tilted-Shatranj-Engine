@@ -63,8 +63,28 @@ void printSidesBitboard(uint64_t *side)
     }
 }
 
-uint64_t genEmptyDiagonal(uint8_t start, uint8_t distance)
-{
+uint64_t genEmptyStraight(uint8_t start, uint8_t len){
+    uint64_t res = 0;
+
+    uint8_t r = start >> 3;
+    uint8_t c = start & 7;
+
+    uint64_t st = 1;
+    st <<= start;
+
+    uint64_t set = ((RANK0 << (8 * r)) ^ (FILE0 << c));
+
+    res |= (st << 8 * len);
+    res |= (st >> 8 * len);
+    res |= (st >> len);
+    res |= (st << len);
+
+    res &= set;
+
+    return res;
+}
+
+uint64_t genEmptyDiagonal(uint8_t start, uint8_t distance){
     uint64_t result = 0;
     uint8_t r = start >> 3;
     uint8_t c = start & 7;
@@ -102,174 +122,218 @@ uint64_t genEmptyDiagonal(uint8_t start, uint8_t distance)
     return result;
 }
 
-uint64_t genEmptyStraight(uint8_t start, uint8_t len)
-{
-    uint64_t res = 0;
-
-    uint8_t r = start >> 3;
-    uint8_t c = start & 7;
-
-    uint64_t st = 1;
-    st <<= start;
-
-    uint64_t set = ((RANK0 << (8 * r)) ^ (FILE0 << c));
-
-    res |= (st << 8 * len);
-    res |= (st >> 8 * len);
-    res |= (st >> len);
-    res |= (st << len);
-
-    res &= set;
-
-    return res;
-}
-
-uint64_t emptyBoardMoves(uint8_t type, uint8_t start)
-{ // white = 1, black = 0
+uint64_t emptyBoardMoves(uint8_t type, uint8_t start){ // white = 1, black = 0
     uint64_t st = 0;
     uint64_t temp;
 
-    uint8_t r = start >> 3;
+    //uint8_t r = start >> 3;
     uint8_t c = start & 7;
 
-    switch (type)
-    {
-    case 0: // King
-        st = (genEmptyStraight(start, 1) | genEmptyDiagonal(start, 1));
-        break;
-    case 1: // Rook
-        st = ((RANK0 << (8 * r)) ^ (FILE0 << c));
-        break;
-    case 2: // Knight
-        temp = 1;
-        temp <<= start;
-        if (c >= 2)
-        {
-            st |= (temp >> 10);
-            st |= (temp << 6);
+    switch (type){
+        case 0: // King
+            st = (genEmptyStraight(start, 1) | genEmptyDiagonal(start, 1));
+            break;
+        case 1: // Rook
+            break;
+        case 2: // Knight
+            temp = 1ULL << start;
+            if (c >= 2)
+            {
+                st |= (temp >> 10);
+                st |= (temp << 6);
+            }
+            if (c >= 1)
+            {
+                st |= (temp >> 17);
+                st |= (temp << 15);
+            }
+            if (c <= 5)
+            {
+                st |= (temp >> 6);
+                st |= (temp << 10);
+            }
+            if (c <= 6)
+            {
+                st |= (temp >> 15);
+                st |= (temp << 17);
+            }
+            break;
+        case 3: // Ferz
+            st = genEmptyDiagonal(start, 1);
+            break;
+        case 4: // Alfil
+            st = genEmptyDiagonal(start, 2);
+            break;
+        case 5: // Pawn (shatranj)
+            break;
+        default:
+            break;
         }
-        if (c >= 1)
-        {
-            st |= (temp >> 17);
-            st |= (temp << 15);
-        }
-        if (c <= 5)
-        {
-            st |= (temp >> 6);
-            st |= (temp << 10);
-        }
-        if (c <= 6)
-        {
-            st |= (temp >> 15);
-            st |= (temp << 17);
-        }
-
-        break;
-    case 3: // Ferz
-        st = genEmptyDiagonal(start, 1);
-        break;
-    case 4: // Alfil
-        st = genEmptyDiagonal(start, 2);
-        break;
-    case 5: // Pawn (shatranj)
-        break;
-    default:
-        break;
-    }
 
     return st;
 }
 
-uint64_t obscureFiles(int c, bool d, bool inc)
-{
-    uint64_t res = 0;
-    for (int i = c + 1; i < 8; i++)
-    {
-        res |= (FILE0 << i);
-    }
-    if (d and inc)
-    { // right
-        return res | (FILE0 << c);
-    }
-    if (d and not inc)
-    {
-        return res;
-    }
-    if (not d and inc)
-    {
-        return (~res);
-    }
-    if (not d and not inc)
-    {
-        return (~res ^ (FILE0 << c));
+void generateHorizontalLookup(uint64_t **table){
+    /*
+    table is a u8[8][64];
+
+    */
+    std::bitset<8> middle;
+    std::bitset<8> rMoves(0);
+
+    table[0][0] = 254; // edge case
+
+    // suppose i = 0
+    for (int j = 1; j < 64; j++)
+    { // for each of the 63 remaining 6 bit combos
+        for (int k = 0; k < __builtin_ctz(j << 1); k++)
+        {                      // for each trailing unset bit and 1 after
+            rMoves.set(k + 1); // set the in the rank move
+        }
+        table[0][j] = rMoves.to_ullong();
+
+        // std::cout << rMoves << '\t' << std::bitset<8>(j << 1) << '\n';
+
+        rMoves.reset(); // reset our bitset
     }
 
-    return 0;
+    table[7][0] = 127;
+    // suppose i = 7
+    for (int j = 1; j < 64; j++)
+    {
+        for (int k = 0; k < __builtin_clz(j << 1) - 24; k++)
+        {
+            rMoves.set(6 - k);
+        }
+        table[7][j] = rMoves.to_ullong();
+
+        // std::cout << rMoves << '\t' << std::bitset<8>(j << 1) << '\n';
+
+        rMoves.reset();
+    }
+
+    int index;
+    for (int i = 1; i < 7; i++)
+    { // i = rookFile in the middle
+        for (int j = 0; j < 64; j++)
+        { // j = middle 6 bits
+            middle = std::bitset<8>(j << 1);
+            if (!middle[i])
+            { // if ith bit is not set
+                // no need to generate because ith bit must be set in occupied board.
+                continue;
+            }
+            index = i - 1; // going left
+            while (true)
+            {
+                rMoves.set(index);
+                if (middle[index] or (index == 0))
+                { // if we encounter a set bit or reach the end
+                    break;
+                }
+                index--;
+            }
+            index = i + 1;
+            while (true)
+            {
+                rMoves.set(index);
+                if (middle[index] or (index == 7))
+                { // same
+                    break;
+                }
+                index++;
+            }
+            table[i][j] = rMoves.to_ullong();
+
+            //std::cout << i << '\t' << std::bitset<8>(j << 1) << '\t' << rMoves << '\n';
+
+            rMoves.reset();
+        }
+    }
 }
 
-uint64_t obscureRanks(int r, bool d, bool inc)
-{
-    uint64_t res = 0;
-    for (int i = r + 1; i < 8; i++)
-    {
-        res |= (RANK0 << (8 * i));
-    }
-    if (d and inc)
-    {
-        return res | (RANK0 << (8 * r));
-    }
-    if (d and not inc)
-    {
-        return res;
-    }
-    if (not d and inc)
-    {
-        return (~res);
-    }
-    if (not d and not inc)
-    {
-        return (~res ^ (RANK0 << (8 * r)));
-    }
-    return 0;
+uint64_t hyperbolaQuintessence(uint64_t occupied, uint8_t square){
+    uint64_t forward;
+    uint64_t reverse;
+    forward = occupied & (FILE0 << (square & 7));
+
+    // printAsBitboard(forward);
+
+    reverse = __builtin_bswap64(forward);
+
+    // uint64_t squarebb = 1ULL << square;
+    forward -= 2 * (1ULL << square);
+    reverse -= 2 * (1ULL << (56 ^ square));
+
+    forward ^= __builtin_bswap64(reverse);
+    forward &= (FILE0 << (square & 7));
+
+    return forward;
 }
 
-void filterStraightBlock(uint64_t &set, uint8_t start, bool piececolor, int8_t obs, bool obscolor)
-{
-    // printAsBitboard(1ULL << obs);
-    // printAsBitboard(set & (1ULL << obs));
-    if ((set & (1ULL << obs)) == 0)
-    { // if the moveset and the obstruction dont intersect, return.
-        return;
+void generateLeaperLookup(uint64_t** table){
+    //indexed u64[5][64]
+    //i = 0 (King)
+    for (int j = 0; j < 64; j++){
+        table[0][j] = emptyBoardMoves(0, j);
     }
-    bool conflict = piececolor xor obscolor; // if the obstruction is capturable
-    uint64_t mask;
+    //i = 2 - 4 (knight, ferz, alfil)
+    for (int i = 2; i < 5; i++){
+        for (int j = 0; j < 64; j++){
+            table[i][j] = emptyBoardMoves(i, j);
+        }
+    }
+}
 
-    if (start < obs)
-    {
-        if (obs - start < 8)
-        {
-            mask = obscureFiles(obs % 8, 1, !conflict);
-        }
-        if ((obs - start) % 8 == 0)
-        {
-            mask = obscureRanks(obs / 8, 1, !conflict);
-        }
+void generatePawnLookup(uint64_t** table){
+    //table [2][48] 
+    for (int j = 8; j < 56; j++){
+        table[0][j - 8] = (5ULL << (j + 7)) & (RANK0 << ((j & 56) + 8));
+        table[1][j - 8] = (5ULL << (j - 9)) & (RANK0 << ((j & 56) - 8));
     }
-    if (start > obs)
-    {
-        if (start - obs < 8)
-        {
-            mask = obscureFiles(obs % 8, 0, !conflict);
-        }
-        if ((start - obs) % 8 == 0)
-        {
-            mask = obscureRanks(obs / 8, 0, !conflict);
-        }
-    }
-    // std::cout << "Mask:\n";
-    // printAsBitboard(mask);
+}
 
-    set &= (~mask);
+uint64_t*** generateLookupTables(){
+    uint64_t*** tables = new uint64_t**[3];
+
+    tables[0] = new uint64_t*[8]; //rooks
+    tables[1] = new uint64_t*[5]; //leapers
+    tables[2] = new uint64_t*[2]; //pawns
+
+    for (int i = 0; i < 8; i++){
+        tables[0][i] = new uint64_t[64];
+    }
+
+    for (int i = 0; i < 5; i++){
+        tables[1][i] = new uint64_t[64];
+    }
+
+    for (int i = 0; i < 2; i++){
+        tables[2][i] = new uint64_t[48];
+    }
+
+    generateHorizontalLookup(tables[0]);
+    generateLeaperLookup(tables[1]);
+    generatePawnLookup(tables[2]);
+
+    return tables;
+}
+
+void deleteLookupTables(uint64_t*** table){
+    //0 = ranks, 1 = pawns, 2 = leaper
+    for (int i = 0; i < 8; i++){
+        delete[] table[0][i];
+    }
+    delete[] table[0];
+    
+    for (int i = 0; i < 5; i++){
+        delete[] table[1][i];
+    }
+    delete[] table[1];
+
+    delete[] table[2][0];
+    delete[] table[2][1];
+    delete[] table[2];
 }
 
 uint8_t *bitboardToList(uint64_t board)
@@ -294,97 +358,71 @@ uint8_t *bitboardToList(uint64_t board)
     return list;
 }
 
-uint64_t fsinglemoveset(uint8_t start, bool piececolor, uint64_t &white, uint64_t &black, uint8_t type)
-{
-    uint64_t result = emptyBoardMoves(type, start); // initialize the result to be the empty board moves.
+uint64_t fsinglemoveset(uint8_t start, bool piececolor, uint64_t &white, uint64_t &black, uint8_t type, uint64_t*** tables){
+    uint64_t result;
 
     uint64_t friends, enemy; // temp variables to store friend/enemy bitboards.
-    if (piececolor)
-    { // assign white/black to friend/enemy, 1 = white.
+    if (piececolor){ // assign white/black to friend/enemy, 1 = white.
         friends = white;
         enemy = black;
-    }
-    else
-    {
+    } else {
         friends = black;
         enemy = white;
     }
+    uint64_t occupied = white | black;
 
-    if (type == 0 or type == 2 or type == 3 or type == 4)
-    { // finishing the leaper movegen is easier; simply mask off the friend pieces.
-        result &= (~friends);
-        return result;
-    }
-    if (type == 1)
-    { // Rook
-        uint64_t enemyblockers = result & enemy;
+    if (type == 1){ //rook
+        result = hyperbolaQuintessence(occupied, start);
+        uint64_t rankMask = RANK0 << ((start & 56));
+        /*
+        printAsBitboard(rankMask);
 
-        // printAsBitboard(enemyblockers);
-        // the set of blockers is the intersection of current moveset and enemy.
-        uint8_t *eblist = bitboardToList(enemyblockers); // converts intersection u64 into a dynamically allocated list of squares (uint8)
+        printAsBitboard(occupied);
 
-        for (int i = 0; i < eblist[0]; i++)
-        { // loop through each element in the list; the length of the list is stored in the first element.
-            // std::cout << "Enemy Obstruction: " <<  (int) eblist[i + 1] << '\n';
-            filterStraightBlock(result, start, piececolor, eblist[i + 1], !piececolor); // the moveset (result) is passed by reference is modified based on individual blockers.
+        uint64_t key = rankMask & occupied;
+        printAsBitboard(key);
+
+        uint64_t key2 = key >> (start & 56);
+        printAsBitboard(key2);
+
+        uint64_t key3 = (key2 >> 1) & 63;
+        printAsBitboard(key3);
+
+
+        uint64_t key4 = rlookup[start & 7][key3];
+        std::cout << '\n' << std::bitset<8>(rlookup[start & 7][key3]) << "\n\n";
+
+        uint64_t key5 = key4 << (start & 56);
+        printAsBitboard(key5);
+        */
+
+        result |= ((uint64_t) tables[0][start & 7][(((rankMask & occupied) >> (start & 56)) >> 1) & 63]) << (start & 56);
+        result &= ~friends;
+    } else if (type == 5){
+        result = tables[2][piececolor][start - 8] & enemy;
+        if (piececolor){
+            result |= ((1ULL << (start - 8)) & ~occupied);
+        } else {
+            result |= ((1ULL << (start + 8)) & ~occupied);
         }
-
-        delete[] eblist; // free the memory
-
-        uint64_t friendblockers = result & friends; // do much the same for friendly pieces.
-
-        // printAsBitboard(friendblockers);
-        uint8_t *fblist = bitboardToList(friendblockers);
-        for (int i = 0; i < fblist[0]; i++)
-        {
-            // std::cout << "Friend Obstruction: " <<  (int) fblist[i + 1] << '\n';
-            filterStraightBlock(result, start, piececolor, fblist[i + 1], piececolor);
-        }
-
-        delete[] fblist;
-        return result;
-    }
-    if (type == 5)
-    {                                                           // pawn (shatranj)
-        uint64_t possibleCaptures = genEmptyDiagonal(start, 1); // initialize
-        int rank = start >> 3;
-        if (piececolor)
-        { // white pawn means go up 1 square; then not all pieces
-            result = ((1ULL << start) >> 8) & (~(white | black));
-            possibleCaptures &= (RANK0 << (8 * (rank - 1))); // ensure captures are in correct direction
-            possibleCaptures &= black;                       // and make sure only opponent pieces are capturable
-        }
-        else
-        { // similar for black pawns
-            result = ((1ULL << start) << 8) & (~(white | black));
-            possibleCaptures &= (RANK0 << (8 * (rank + 1)));
-            possibleCaptures &= white;
-        }
-
-        result |= possibleCaptures;
-        return result;
+        
+        
+    } else {
+        result = tables[1][type][start];
+        result &= ~friends;
     }
 
-    return 0;
+    return result;
 }
 
-uint64_t *pseudolegal(uint64_t *white, uint64_t *black, bool color)
-{
-    /*
-    mode = 0: standard chess: King Queen Rook Bishop Knight Pawn ALL
-    mode = 1: shatranj chess: King Rook Knight Ferz Alfil Pawn ALL
-    */
-
+uint64_t *pseudolegal(uint64_t *white, uint64_t *black, bool color, uint64_t*** tables){
     uint64_t *side = 0; // initialize pointers
     uint64_t *enemy = 0;
 
-    if (color)
-    { // depending on the color being generated, the friend and enemy pieces must be distinguished
+    if (color){ // depending on the color being generated, the friend and enemy pieces must be distinguished
         side = white;
         enemy = black;
-    }
-    else
-    {
+    } else {
         side = black;
         enemy = white;
     }
@@ -407,7 +445,7 @@ uint64_t *pseudolegal(uint64_t *white, uint64_t *black, bool color)
         pieces = bitboardToList(side[i]); // convert piece bitboard to a list of starting squares
         for (int j = 0; j < pieces[0]; j++)
         { // iterate through the piece starting squares and generate moves for the specified piece type
-            result[index] = fsinglemoveset(pieces[j + 1], color, white[6], black[6], i);
+            result[index] = fsinglemoveset(pieces[j + 1], color, white[6], black[6], i, tables);
             // the f(inal)single(piece)moveset for each piece written into the set of movesets
             // parameters: the location, piececolor, white pieces, black pieces, and piece type
             index++;
@@ -574,9 +612,9 @@ uint8_t *orderedPieceIndices(uint64_t *side)
     return result;
 }
 
-uint32_t *fullMoveGen(uint64_t *white, uint64_t *black, bool color)
+uint32_t *fullMoveGen(uint64_t *white, uint64_t *black, bool color, uint64_t*** tables)
 {
-    uint64_t *moveSetList = pseudolegal(white, black, color); // generate the pseudolegal moves
+    uint64_t *moveSetList = pseudolegal(white, black, color, tables); // generate the pseudolegal moves
     uint64_t *fr;                                             // assign friend and enemy pointers
     uint64_t *en;
 
@@ -717,9 +755,9 @@ void makeMove(uint32_t move, uint64_t *&white, uint64_t *&black, bool forward)
     }
 }
 
-bool isChecked(bool color, uint64_t *white, uint64_t *black)
+bool isChecked(bool color, uint64_t *white, uint64_t *black, uint64_t*** tables)
 {
-    uint8_t kingsquare = 0;
+    // uint8_t kingsquare = 0;
     uint64_t *fr;
     uint64_t *en;
     if (color)
@@ -732,6 +770,7 @@ bool isChecked(bool color, uint64_t *white, uint64_t *black)
         en = white;
         fr = black;
     }
+    /*
     uint64_t kingbb = fr[0];
     // printAsBitboard(kingbb);
     while (kingbb > 1ULL)
@@ -739,11 +778,13 @@ bool isChecked(bool color, uint64_t *white, uint64_t *black)
         kingbb >>= 1;
         kingsquare++;
     }
+    */
+    uint8_t kingsquare = __builtin_ctzll(fr[0]);
 
     uint64_t phantombitboard;
     for (int i = 0; i < 5; i++)
     { // all except pawns
-        phantombitboard = fsinglemoveset(kingsquare, color, white[6], black[6], i);
+        phantombitboard = fsinglemoveset(kingsquare, color, white[6], black[6], i, tables);
         // printAsBitboard(phantombitboard);
         if (__builtin_popcountll(phantombitboard & en[i]))
         { // if the phantom piece can capture an opposing piece of the same type
@@ -789,8 +830,7 @@ std::string moveToAlgebraic(uint32_t move)
     return result;
 }
 
-uint64_t perft(uint64_t *white, uint64_t *black, int depth, bool color, int ply)
-{
+uint64_t perft(uint64_t *white, uint64_t *black, int depth, bool color, int ply, uint64_t*** tables){
     uint64_t nodes = 0; // initialize
     if (depth == 0)
     { //
@@ -799,11 +839,11 @@ uint64_t perft(uint64_t *white, uint64_t *black, int depth, bool color, int ply)
 
     uint64_t additional = 0;
 
-    uint32_t *moves = fullMoveGen(white, black, color);
+    uint32_t *moves = fullMoveGen(white, black, color, tables);
     for (int i = 0; i < moves[0]; i++)
     {
         makeMove(moves[i + 1], white, black, 1);
-        if (isChecked(color, white, black))
+        if (isChecked(color, white, black, tables))
         {                                            // if is checked
             makeMove(moves[i + 1], white, black, 0); // unmake the move
             // printMoveAsBinary(moves[i + 1]);
@@ -812,17 +852,18 @@ uint64_t perft(uint64_t *white, uint64_t *black, int depth, bool color, int ply)
 
             continue; // continue to the next iteration.
         }
-        additional = perft(white, black, depth - 1, !color, ply + 1);
+        additional = perft(white, black, depth - 1, !color, ply + 1, tables);
 
         if (ply == 0)
         {
-            std::cout << moveToAlgebraic(moves[i + 1]) << ": " << additional << '\n';
+            //std::cout << moveToAlgebraic(moves[i + 1]) << ": " << additional << '\n';
             // printMoveAsBinary(moves[i + 1]);
         }
 
         nodes += additional;
         makeMove(moves[i + 1], white, black, 0);
     }
+    delete[] moves;
     return nodes;
 }
 
@@ -875,8 +916,7 @@ void emptyBoard(uint64_t *&white, uint64_t *&black)
     }
 }
 
-uint8_t readFen(std::string fen, uint64_t *&white, uint64_t *&black, bool &toMove)
-{
+uint8_t readFen(std::string fen, uint64_t *&white, uint64_t *&black, bool &toMove, uint64_t*** tables){
     emptyBoard(white, black);
 
     int index = 0; // char by char reader
@@ -964,7 +1004,7 @@ uint8_t readFen(std::string fen, uint64_t *&white, uint64_t *&black, bool &toMov
 
     for (std::string m : extraMoveList)
     {                                                 // for each move found
-        allMoves = fullMoveGen(white, black, toMove); // generate all the moves
+        allMoves = fullMoveGen(white, black, toMove, tables); // generate all the moves
         for (int i = 0; i < allMoves[0]; i++)
         { // for each of the moves generated
             if (moveToAlgebraic(allMoves[i + 1]) == m)
@@ -973,6 +1013,7 @@ uint8_t readFen(std::string fen, uint64_t *&white, uint64_t *&black, bool &toMov
                 toMove = !toMove;                           // pass the move
             }
         }
+        delete[] allMoves;
     }
 
     return halfmoves;
