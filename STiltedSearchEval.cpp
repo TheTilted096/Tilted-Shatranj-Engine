@@ -16,35 +16,52 @@ Nathaniel Potter, 3-11-2024
 #define PAWN_VALUE 100
 */
 
+/*
+Move Representation:
+
+0000 0000 0000 0000 0000 000000 000000
+
+0-5: start square
+6-11: end square
+
+12: Capture
+13-15: Captured Type
+16-18: Piece Type Moved
+19: Promotion
+20-22: Piece End Type
+23: Color
+
+*/
+
 int evaluate(){
-    int wtotal = 0, btotal = 0;
+    wtotal = 0, btotal = 0;
     int values[6] = {0, 650, 400, 200, 150, 100};
 
-    uint8_t* wlist;
-    uint8_t* blist;
+    uint8_t *wlist;
+    uint8_t *blist;
 
     for (int i = 0; i < 6; i++){
         wlist = bitboardToList(white[i]);
         blist = bitboardToList(black[i]);
 
-        wtotal += (wlist[0] * values[i]);
-        btotal += (blist[0] * values[i]);
+        wtotal += (__builtin_popcountll(white[i]) * values[i]);
+        btotal += (__builtin_popcountll(black[i]) * values[i]);
 
         for (int j = 0; j < wlist[0]; j++){
-            wtotal += mps[i][wlist[j + 1]]; //add psqt bonus at piece's square
+            wtotal += mps[i][wlist[j + 1]]; // add psqt bonus at piece's square
         }
         for (int j = 0; j < blist[0]; j++){
-            btotal += mps[i][56^blist[j + 1]];
+            btotal += mps[i][56 ^ blist[j + 1]];
         }
         delete[] wlist;
         delete[] blist;
     }
-    if (toMove){ //if white to move
+
+    if (toMove){ // if white to move
         return (wtotal - btotal);
     } else {
         return (btotal - wtotal);
     }
-    
 
     return 0;
 }
@@ -57,24 +74,31 @@ bool kingBare(){ //returns true if 'toMove' king is bare, false otherwise, and f
 }
 
 int alphabeta(int alpha, int beta, int depth, int ply){
-    int score = -29999;
+    int score = -29000;
 
     if (depth == 0){
-        return evaluate();
+        if (toMove){ // if white to move
+            return (wtotal - btotal);
+        } else {
+            return (btotal - wtotal);
+        }
     }
 
     uint32_t* moves = fullMoveGen();
 
     for (int i = 0; i < moves[0]; i++){ //for each move
-        makeMove(moves[i + 1], 1); //make the move. 
+        makeMove(moves[i + 1], 1, 1); //make the move.
+
         if (isChecked() or kingBare()){ //if is checked
             //std::cout << "\nMove Rejected: " << moveToAlgebraic(moves[i + 1]) << '\n';
-            makeMove(moves[i + 1], 0); //unmake the move
+            makeMove(moves[i + 1], 0, 1); //unmake the move
             continue;
         }
+
         score = -alphabeta(-beta, -alpha, depth - 1, ply + 1); //do for opp
         if (score >= beta){ //if opp makes a bad move (they would not do this)
-            makeMove(moves[i + 1], 0); //unmake the move.
+            makeMove(moves[i + 1], 0, 1); //unmake the move.
+
             delete[] moves;
             return beta;   //  fail hard beta-cutoff
         }
@@ -84,10 +108,11 @@ int alphabeta(int alpha, int beta, int depth, int ply){
             }
             alpha = score; // alpha acts like max in MiniMax  
         }      
-        makeMove(moves[i + 1], 0); //unmake the move. 
+        makeMove(moves[i + 1], 0, 1); //unmake the move.
     }
 
-    if (score == -29999){
+    if (score == -29000){
+        score += ply;
         delete[] moves;
         return score;
     }

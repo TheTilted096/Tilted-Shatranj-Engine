@@ -15,8 +15,11 @@ int main(){
 
     std::string command;
     bool originalMove;
+    std::string move;
 
-    std::cout << "Shatranj Tilted 13 by TheTilted096\n";
+    int64_t dur;
+
+    std::cout << "Shatranj Tilted 14 by TheTilted096\n";
 
     int alpha = -30000; //assume position is bad (you want to increase this)
     int beta = 30000; //good for your opponent (you want to decrease this)
@@ -31,16 +34,21 @@ int main(){
             return 0;
         }
         if (command == "uci"){
-            std::cout << "id name Shatranj Tilted 13\nid author TheTilted096\noption name UCI_Variant type combo default shatranj var shatranj\nuciok\n";
+            std::cout << "id name Shatranj Tilted 14+\nid author TheTilted096\noption name UCI_Variant type combo default shatranj var shatranj\nuciok\n";
         }
         if (command == "isready"){
             std::cout << "readyok\n";
         }
+        if (command == "ucinewgame"){
+            setStartPos();
+        }
         if (command.substr(0, 17) == "position startpos"){
             setStartPos();
+
             //"position startpos moves "...;
             if (command.length() > 25){
                 std::string movesstring = command.substr(24);
+
                 std::stringstream movestream(movesstring);
                 
                 int extraMoves = 1;
@@ -58,28 +66,24 @@ int main(){
 
                 uint32_t* allMoves;
 
-                for (std::string m : extraMoveList){ //for each move found
+                for (int i = 0; i < extraMoves; i++){ //for each move found
                     allMoves = fullMoveGen(); //generate all the moves
-                    for (int i = 0; i < allMoves[0]; i++){ //for each of the moves generated
-                        if (moveToAlgebraic(allMoves[i + 1]) == m){ //get their alg representation and compare
-                            makeMove(allMoves[i + 1], 1); //if so, make the move
+                    for (int j = 0; j < allMoves[0]; j++){ //for each of the moves generated
+                        if (moveToAlgebraic(allMoves[j + 1]) == extraMoveList[i]){ //get their alg representation and compare
+                            makeMove(allMoves[j + 1], 1, 0); //if so, make the move
+                            break;
                         }
                     }
                     delete[] allMoves;
                 }
-                
+
             }
-            /*
-            std::cout << "\nWhite's Pieces:\n";
-            printSidesBitboard(white);
-            std::cout << "\nBlack's Pieces:\n";
-            printSidesBitboard(black);
-            */
         }
         if (command.substr(0, 12) == "position fen"){
             //std::cout << command.substr(13) << '\n';
             readFen(command.substr(13));
         }
+
         if (command.substr(0, 2) == "go"){
             /* Random Mover (Tilted 2)
             uint32_t* allMoves = fullMoveGen();
@@ -97,9 +101,27 @@ int main(){
             std::cout << "bestmove " << moveToAlgebraic(allMoves[randindex]) << '\n';
             */
             originalMove = toMove;
+            nodes = 0;
+            auto start = std::chrono::steady_clock::now();
+            evaluate();
             boardEval = alphabeta(alpha, beta, 4, 0);
+            auto end = std::chrono::steady_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
             std::cout << "info depth 4 score cp " << boardEval << '\n';
+
+            dur = duration.count();
+
+            std::cout << "info nodes " << nodes << " nps ";
+
+            if (dur == 0){
+                std::cout << "0\n";
+            } else {
+                std::cout << 1000 * nodes / dur << '\n';
+            }
+
             std::cout << "bestmove " << moveToAlgebraic(bestMove) << '\n';
+            
             toMove = originalMove;
         }
         if (command.substr(0, 6) == "perft "){
@@ -118,9 +140,7 @@ int main(){
             std::cout << "\nBlack's Pieces\n";
             printSidesBitboard(black);
         }
-        if (command == "eval"){
-            std::cout << evaluate() << " : " << toMove << '\n';
-        }
+
 
 
         //std::cout << "command executed: " << command << '\n';

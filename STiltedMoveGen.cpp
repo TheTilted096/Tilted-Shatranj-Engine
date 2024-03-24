@@ -40,6 +40,12 @@ uint32_t bestMove;
 uint64_t*** tables;
 int boardEval;
 
+int wtotal, btotal;
+
+//int evalIncr[33];
+
+uint64_t nodes;
+
 int mps[6][64] = 
 {
 {-50, -40, -30, -20, -20, -30, -40, -50, /*King*/
@@ -125,6 +131,26 @@ void printSidesBitboard(uint64_t *side)
         }
         std::cout << '\n';
     }
+}
+
+void setStartPos(){
+    black[0] = 8ULL;
+    black[1] = 129ULL;
+    black[2] = 66ULL;
+    black[3] = 16ULL;
+    black[4] = 36ULL;
+    black[5] = RANK0 << 8;
+    black[6] = RANK0 | (RANK0 << 8);
+
+    for (int i = 0; i < 5; i++)
+    {
+        white[i] = black[i] << 56;
+    }
+
+    white[5] = (RANK0 << 48);
+    white[6] = (RANK0 << 48) | (RANK0 << 56);
+
+    toMove = true;
 }
 
 uint64_t genEmptyStraight(uint8_t start, uint8_t len){
@@ -398,22 +424,7 @@ void deleteLookupTables(){
     delete[] tables[2];
 }
 
-void initializeAll(){
-    white = new uint64_t[7];
-    black = new uint64_t[7];
-    toMove = true;
-
-    generateLookupTables();
-}
-
-void cleanupAll(){
-    delete[] white;
-    delete[] black;
-    deleteLookupTables();
-}
-
-uint8_t *bitboardToList(uint64_t board)
-{
+uint8_t *bitboardToList(uint64_t board){
     int bits = __builtin_popcountll(board);
     uint8_t *list = new uint8_t[bits + 1];
     list[0] = bits;
@@ -432,6 +443,47 @@ uint8_t *bitboardToList(uint64_t board)
     }
 
     return list;
+}
+
+void initializeAll(){
+    white = new uint64_t[7];
+    black = new uint64_t[7];
+    setStartPos();
+    nodes = 0;
+    wtotal = 0;
+
+    uint8_t* wlist;
+    int values[6] = {0, 650, 400, 200, 150, 100};
+    for (int i = 0; i < 6; i++){
+        wlist = bitboardToList(white[i]);
+        wtotal += (__builtin_popcountll(white[i]) * values[i]);
+        for (int j = 0; j < wlist[0]; j++){
+            wtotal += mps[i][wlist[j + 1]];
+        }
+        delete[] wlist;
+    }
+
+    btotal = wtotal;
+
+    for (int i = 0; i < 6; i++){
+        for (int j = 0; j < 64; j++){
+            mps[i][j] += values[i];
+        }
+    }
+    
+    /*
+    for (int i = 0; i < 33; i++){
+        evalIncr[i] = 0;
+    }
+    */
+
+    generateLookupTables();
+}
+
+void cleanupAll(){
+    delete[] white;
+    delete[] black;
+    deleteLookupTables();
 }
 
 uint64_t fsinglemoveset(uint8_t start, bool piececolor, uint8_t type){
@@ -800,7 +852,34 @@ std::string moveToAlgebraic(uint32_t move){
     return result;
 }
 
-void makeMove(uint32_t move, bool forward){
+void evaluateMove(uint32_t& move, int& bonus, int& cap){
+    int ept = (move >> 20) & 7;
+    int esq = (move >> 6) & 63U;
+
+    int ipt = (move >> 16) & 7;
+    int isq = (move & 63U);
+
+    bool col = move & (1U << 23);
+
+    cap = 0;
+
+    if ((move >> 12) & 1){ //if there is a capture
+        if (col){ //if it is white's move (captured black piece), get psqt for that
+            cap = mps[(move >> 13) & 7][esq^56];
+        } else { //if it is black's move (captured white piece)< get psqt for that as well
+            cap = mps[(move >> 13) & 7][esq];
+        }
+    }
+
+    if (!col){ //now we compute our own bonus. If we have the black pieces, XOR with 56
+        esq ^= 56; 
+        isq ^= 56;
+    }
+
+    bonus = mps[ept][esq] - mps[ipt][isq]; //regardless, this will always be the formula. 
+}
+
+void makeMove(uint32_t move, bool forward, bool ev){
     // true -> make, false -> unmake
 
     uint8_t startsquare = move & (63U);
@@ -845,6 +924,28 @@ void makeMove(uint32_t move, bool forward){
     }
 
     //std::cout << moveToAlgebraic(move) << '\n';
+
+    if (forward){
+        nodes++;
+    }
+
+    if (ev){
+        int b, c;
+        evaluateMove(move, b, c);
+        if (forward){
+            if (toMove){
+                wtotal += b; btotal -= c;
+            } else {
+                wtotal -= c; btotal += b;
+            }
+        } else {
+            if (!toMove){
+                wtotal -= b; btotal += c;
+            } else {
+                wtotal += c; btotal -= b;
+            }
+        }
+    }
 
     toMove = !toMove;
 }
@@ -916,9 +1017,9 @@ uint64_t perft(int depth, int ply){
     uint32_t *moves = fullMoveGen(); //generate for whoever's move it is
     for (int i = 0; i < moves[0]; i++)
     {
-        makeMove(moves[i + 1], 1);
+        makeMove(moves[i + 1], 1, 0);
         if (isChecked()){                                            // if is checked
-            makeMove(moves[i + 1], 0); // unmake the move
+            makeMove(moves[i + 1], 0, 0); // unmake the move
             // printMoveAsBinary(moves[i + 1]);
             // std::cout << moveToAlgebraic(moves[i + 1]) << " rejected by check on " << color << '\n';
             // printSidesBitboard(black);
@@ -934,7 +1035,7 @@ uint64_t perft(int depth, int ply){
         }
 
         nodes += additional;
-        makeMove(moves[i + 1], 0);
+        makeMove(moves[i + 1], 0, 0);
     }
     delete[] moves;
     return nodes;
@@ -1081,7 +1182,7 @@ uint8_t readFen(std::string fen){
         for (int i = 0; i < allMoves[0]; i++)
         { // for each of the moves generated
             if (moveToAlgebraic(allMoves[i + 1]) == m){     // get their alg representation and compare
-                makeMove(allMoves[i + 1], 1); // if so, make the move
+                makeMove(allMoves[i + 1], 1, 0); // if so, make the move
             }
         }
         delete[] allMoves;
@@ -1091,22 +1192,4 @@ uint8_t readFen(std::string fen){
     return halfmoves;
 }
 
-void setStartPos(){
-    black[0] = 8ULL;
-    black[1] = 129ULL;
-    black[2] = 66ULL;
-    black[3] = 16ULL;
-    black[4] = 36ULL;
-    black[5] = RANK0 << 8;
-    black[6] = RANK0 | (RANK0 << 8);
 
-    for (int i = 0; i < 5; i++)
-    {
-        white[i] = black[i] << 56;
-    }
-
-    white[5] = (RANK0 << 48);
-    white[6] = (RANK0 << 48) | (RANK0 << 56);
-
-    toMove = true;
-}
