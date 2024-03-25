@@ -5,7 +5,6 @@ Driver Code for the Tilted Shatranj Engine
 TheTilted096, 2024. 
 
 */
-
 #include "STiltedSearchEval.cpp"
 
 int main(){

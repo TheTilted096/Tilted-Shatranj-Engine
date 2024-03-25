@@ -955,13 +955,10 @@ bool isChecked(){
     uint64_t *fr;
     uint64_t *en;
     //std::cout << '\n' << toMove << '\n';
-    if (!toMove)
-    {
+    if (!toMove){
         fr = white;
         en = black;
-    }
-    else
-    {
+    } else {
         en = white;
         fr = black;
     }
@@ -977,8 +974,7 @@ bool isChecked(){
     uint8_t kingsquare = __builtin_ctzll(fr[0]);
 
     uint64_t phantombitboard;
-    for (int i = 0; i < 5; i++)
-    { // all except pawns
+    for (int i = 0; i < 5; i++){ // all except pawns
         phantombitboard = fsinglemoveset(kingsquare, !toMove, i);
         //printAsBitboard(phantombitboard);
         if (__builtin_popcountll(phantombitboard & en[i])){ // if the phantom piece can capture an opposing piece of the same type
@@ -1000,10 +996,10 @@ bool isChecked(){
         possibleCaptures &= (RANK0 << (8 * (rank + 1)));
     }
     */
-    if (en[5] & possibleCaptures)
-    {
+    if (en[5] & possibleCaptures){
         return true;
     }
+    return false;
 }
 
 uint64_t perft(int depth, int ply){
@@ -1041,24 +1037,21 @@ uint64_t perft(int depth, int ply){
     return nodes;
 }
 
-int pieceFenIndex(char p)
-{
+int pieceFenIndex(char p){
     if (p > 64 and p < 91)
     {
         p += 32;
     }
     char orderedpieces[6] = {'k', 'r', 'n', 'q', 'b', 'p'};
-    for (int i = 0; i < 6; i++)
-    {
-        if (p == orderedpieces[i])
-        {
+    for (int i = 0; i < 6; i++){
+        if (p == orderedpieces[i]){
             return i;
         }
     }
+    return -1;
 }
 
-void placeFenPiece(char p, int square)
-{
+void placeFenPiece(char p, int square){
     int pieceindex = pieceFenIndex(p);
     uint64_t piecebb = 1ULL << square;
 
