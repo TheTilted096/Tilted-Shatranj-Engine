@@ -73,18 +73,53 @@ bool kingBare(){ //returns true if 'toMove' king is bare, false otherwise, and f
     return ((toMove and !w and b) or (!toMove and w and !b)); // (black tM and white not bare and black bare) OR (white tM and white bare and black not bare);
 }
 
+int quiesce(int alpha, int beta, int lply){
+    int failSoft = toMove ? (wtotal - btotal) : (btotal - wtotal); //quickly evaluate the position
+    int score = -29000; //initialize the score 
+    if (failSoft >= beta){
+        return beta;
+    }
+    if (alpha < failSoft){
+        alpha = failSoft;
+    }
+
+    fullMoveGen(32 + lply, 1); //generate moves and write them in a separate part of the array
+    for (int i = 0; i < moves[32 + lply][0]; i++){ //for each move
+        makeMove(moves[32 + lply][i + 1], 1, 1); //make the move.
+        endHandle(); //if there are time/node constraints, handle them
+        if (isChecked() or kingBare()){ //if is checked
+            //std::cout << "\nMove Rejected: " << moveToAlgebraic(moves[ply][i + 1]) << '\n';
+            makeMove(moves[32 + lply][i + 1], 0, 1); //unmake the move
+            continue;
+        }
+        score = -quiesce(-beta, -alpha, lply + 1);
+        makeMove(moves[32 + lply][i + 1], 0, 1); //take back the move
+        
+        if (score >= beta){
+            return beta;
+        }
+        if (score > alpha){ //yay best move
+            alpha = score; // alpha acts like max in MiniMax  
+        }   
+    }
+    return alpha;
+}
+
 int alphabeta(int alpha, int beta, int depth, int ply){
     int score = -29000;
 
     if (depth == 0){
+        /* No Qsearch
         if (toMove){ // if white to move
             return (wtotal - btotal);
         } else {
             return (btotal - wtotal);
         }
+        */
+        return quiesce(alpha, beta, 0);
     }
 
-    fullMoveGen(ply);
+    fullMoveGen(ply, 0);
 
     for (int i = 0; i < moves[ply][0]; i++){ //for each move
         makeMove(moves[ply][i + 1], 1, 1); //make the move.

@@ -46,8 +46,6 @@ int wtotal, btotal;
 volatile bool timeExpired;
 uint64_t mnodes = 1000000000;
 
-//int evalIncr[33];
-
 uint64_t nodes;
 
 int mps[6][64] = 
@@ -644,15 +642,11 @@ uint8_t *orderedStartingSquares(uint64_t *side)
     return result;
 }
 
-uint8_t determineCapture(uint64_t *opp, uint8_t square)
-{
+uint8_t determineCapture(uint64_t *opp, uint8_t square){
     uint64_t asbitboard = 1ULL << square;
-    if (asbitboard & opp[6])
-    {
-        for (int i = 1; i < 6; i++)
-        {
-            if (asbitboard & opp[i])
-            {
+    if (asbitboard & opp[6]){
+        for (int i = 1; i < 6; i++){
+            if (asbitboard & opp[i]){
                 return i;
             }
         }
@@ -680,41 +674,38 @@ void printMoveAsBinary(uint32_t move)
     std::cout << '\n';
 }
 
-uint32_t *movesetToMoves(uint8_t start, uint64_t set, uint8_t type)
-{
-    uint8_t *destinations = bitboardToList(set);
-    uint32_t *resultMoves = new uint32_t[27];
-
-    // uint8_t* typeToList = decidePieceList(mode);
-
+uint32_t *movesetToMoves(uint8_t start, uint64_t set, uint8_t type, bool capsOnly){
     uint8_t captured;
 
     uint64_t *enemy;
-    if (toMove)
-    {
+    if (toMove){
         enemy = black;
-    }
-    else
-    {
+    } else {
         enemy = white;
     }
 
-    resultMoves[0] = destinations[0];
-    int index = 1;
+    if (capsOnly){
+        set &= enemy[6];
+    }
 
-    for (int i = 1; i < destinations[0] + 1; i++)
-    {
-        resultMoves[index] = (uint32_t)start;
+    uint8_t *destinations = bitboardToList(set);
+    uint32_t *resultMoves = new uint32_t[27];
 
-        // printMoveAsBinary(resultMoves[index]);
+    //resultMoves[0] = destinations[0]; //the first element is the number of destinations
+    int index = 1; //start the index of moves
 
+    for (int i = 1; i < destinations[0] + 1; i++){ //loop through the destinations
+        captured = determineCapture(enemy, destinations[i]); //determine if and which piece is captured
+        /*
+        if (capsOnly and !captured){ //if we are searching for only captures but there is nothing captured
+            continue; //just skip the current destination in consideration. 
+        }
+        */
+
+        resultMoves[index] = (uint32_t)start; 
         resultMoves[index] |= ((uint32_t)destinations[i] << 6);
 
-        // printMoveAsBinary(resultMoves[index]);
-
-        captured = determineCapture(enemy, destinations[i]);
-        if (captured != 0)
-        {
+        if (captured != 0){
             resultMoves[index] |= (((uint32_t)1) << 12);
             resultMoves[index] |= (((uint32_t)captured) << 13);
         }
@@ -723,19 +714,15 @@ uint32_t *movesetToMoves(uint8_t start, uint64_t set, uint8_t type)
 
         // printMoveAsBinary(resultMoves[index]);
 
-        if (type == 5)
-        {
+        if (type == 5){
             bool isPromoting = (1ULL << destinations[i]) & ((RANK0) | (RANK0 << 56));
-            if (isPromoting)
-            {
+            if (isPromoting){
                 resultMoves[index] |= ((uint32_t)1) << 19;
 
                 uint32_t endpiecereset = 0xFF8FFFFF;
                 resultMoves[index] &= endpiecereset; // wipe the bits since they were set before.
                 resultMoves[index] |= ((uint32_t)3) << 20;
-            }
-            else
-            {
+            } else {
                 resultMoves[index] |= ((uint32_t)5) << 20;
             }
             // printMoveAsBinary(resultMoves[index]);
@@ -773,7 +760,7 @@ uint8_t *orderedPieceIndices(uint64_t *side)
     return result;
 }
 
-void fullMoveGen(int ply){
+void fullMoveGen(int ply, bool capsOnly){
     uint64_t *moveSetList = pseudolegal(); // generate the pseudolegal moves
     //std::cout << "Pseudolegals Generated\n";
     uint64_t *fr;                          // assign friend and enemy pointers
@@ -793,9 +780,8 @@ void fullMoveGen(int ply){
     int bits = __builtin_popcountll(fr[6]);
 
     uint32_t **moveListList = new uint32_t *[bits]; // initialize list of move lists obtained from bboards
-    for (int i = 0; i < moveSetList[0]; i++)
-    {
-        moveListList[i] = movesetToMoves(startSquares[i + 1], moveSetList[i + 1], pieceIndices[i + 1]);
+    for (int i = 0; i < moveSetList[0]; i++){
+        moveListList[i] = movesetToMoves(startSquares[i + 1], moveSetList[i + 1], pieceIndices[i + 1], capsOnly);
     }
 
     int total = 0;
@@ -1036,7 +1022,7 @@ uint64_t perft(int depth, int ply){
 
     uint64_t additional = 0;
 
-    fullMoveGen(ply); //generate for whoever's move it is
+    fullMoveGen(ply, 0); //generate for whoever's move it is
     for (int i = 0; i < moves[ply][0]; i++){
         makeMove(moves[ply][i + 1], 1, 0);
 
@@ -1175,7 +1161,7 @@ uint8_t readFen(std::string fen){
 
     for (std::string m : extraMoveList)
     {                                                 // for each move found
-        fullMoveGen(0); // generate all the moves
+        fullMoveGen(0, 0); // generate all the moves
         for (int i = 0; i < moves[0][0]; i++)
         { // for each of the moves generated
             if (moveToAlgebraic(moves[0][i + 1]) == m){     // get their alg representation and compare

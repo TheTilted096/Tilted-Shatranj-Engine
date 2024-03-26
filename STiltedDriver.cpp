@@ -21,7 +21,7 @@ int main(){
     //std::string move;
     //int64_t dur;
 
-    std::cout << "Shatranj Tilted 14 by TheTilted096\n";
+    std::cout << "Shatranj Tilted 17+ by TheTilted096\n";
 
     int alpha = -30000; //assume position is bad (you want to increase this)
     int beta = 30000; //good for your opponent (you want to decrease this)
@@ -38,7 +38,7 @@ int main(){
             return 0;
         }
         if (command == "uci"){
-            std::cout << "id name Shatranj Tilted 14+\nid author TheTilted096\noption name UCI_Variant type combo default shatranj var shatranj\nuciok\n";
+            std::cout << "id name Shatranj Tilted 17+\nid author TheTilted096\noption name UCI_Variant type combo default shatranj var shatranj\nuciok\n";
         }
         if (command == "isready"){
             std::cout << "readyok\n";
@@ -69,7 +69,7 @@ int main(){
                 }
 
                 for (int i = 0; i < extraMoves; i++){ //for each move found
-                    fullMoveGen(0); //generate all the moves
+                    fullMoveGen(0, 0); //generate all the moves
                     for (int j = 0; j < moves[0][0]; j++){ //for each of the moves generated
                         if (moveToAlgebraic(moves[0][j + 1]) == extraMoveList[i]){ //get their alg representation and compare
                             makeMove(moves[0][j + 1], 1, 0); //if so, make the move
@@ -85,6 +85,7 @@ int main(){
             readFen(command.substr(13));
         }
 
+        //commands
         if (command.substr(0, 2) == "go"){
             /* Random Mover (Tilted 2)
             uint32_t* allMoves = fullMoveGen();
@@ -157,6 +158,7 @@ int main(){
                     mnodes = stoi(param);
                 }
             }
+            nodes = 0;
             iterativeDeepening(alpha, beta, tTime, tDepth);
             loadPos(woriginal, boriginal, originalMove, 0);
             nodes = 0;
@@ -172,13 +174,16 @@ int main(){
             toMove = originalMove;
         }
         
+        //debug section
         if (command == "printpieces"){
             std::cout << "\nWhite's Pieces\n";
             printSidesBitboard(white);
             std::cout << "\nBlack's Pieces\n";
             printSidesBitboard(black);
         }
-
+        if (command == "testfeature"){
+            std::cout << "No Feature To Test\n";
+        }
 
 
         //std::cout << "command executed: " << command << '\n';
