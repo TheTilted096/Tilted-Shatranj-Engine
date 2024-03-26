@@ -84,40 +84,89 @@ int alphabeta(int alpha, int beta, int depth, int ply){
         }
     }
 
-    uint32_t* moves = fullMoveGen();
+    fullMoveGen(ply);
 
-    for (int i = 0; i < moves[0]; i++){ //for each move
-        makeMove(moves[i + 1], 1, 1); //make the move.
+    for (int i = 0; i < moves[ply][0]; i++){ //for each move
+        makeMove(moves[ply][i + 1], 1, 1); //make the move.
+
+        endHandle();
 
         if (isChecked() or kingBare()){ //if is checked
-            //std::cout << "\nMove Rejected: " << moveToAlgebraic(moves[i + 1]) << '\n';
-            makeMove(moves[i + 1], 0, 1); //unmake the move
+            //std::cout << "\nMove Rejected: " << moveToAlgebraic(moves[ply][i + 1]) << '\n';
+            makeMove(moves[ply][i + 1], 0, 1); //unmake the move
             continue;
         }
 
         score = -alphabeta(-beta, -alpha, depth - 1, ply + 1); //do for opp
         if (score >= beta){ //if opp makes a bad move (they would not do this)
-            makeMove(moves[i + 1], 0, 1); //unmake the move.
-
-            delete[] moves;
+            makeMove(moves[ply][i + 1], 0, 1); //unmake the move.
             return beta;   //  fail hard beta-cutoff
         }
         if (score > alpha){ //yay best move
             if (ply == 0){ //if this is the root call, save the best move
-                bestMove = moves[i + 1];
+                bestMove = moves[ply][i + 1];
             }
             alpha = score; // alpha acts like max in MiniMax  
         }      
-        makeMove(moves[i + 1], 0, 1); //unmake the move.
+        makeMove(moves[ply][i + 1], 0, 1); //unmake the move.
     }
 
     if (score == -29000){
         score += ply;
-        delete[] moves;
         return score;
     }
 
-    delete[] moves;
 
     return alpha;
 }
+
+void moveTimer(int wait){
+    timeExpired = false;
+    std::this_thread::sleep_for(std::chrono::milliseconds(wait));
+    timeExpired = true;
+}
+
+int iterativeDeepening(int alpha, int beta, int thinkTime, int mdepth){
+    std::thread myTimer;
+    if (~thinkTime){
+        myTimer = std::thread(moveTimer, thinkTime);
+    }
+
+    uint32_t cbMove;
+    int cbEval;
+    uint64_t prevNodes;
+
+    evaluate(); //set wtotal and btotal before search
+
+    auto start = std::chrono::steady_clock::now();
+    try {
+        for (int i = 0; i < mdepth; i++){
+            prevNodes = nodes;
+            cbEval = alphabeta(alpha, beta, i, 0);
+            cbMove = bestMove;
+            std::cout << "info depth " << i << " nodes " << nodes - prevNodes << " score cp " << cbEval << '\n';
+        }
+    } catch (const char* e){
+        timeExpired = false;
+        std::cout << e;
+        boardEval = cbEval;
+        bestMove = cbMove;
+    }
+    auto end = std::chrono::steady_clock::now();
+    auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+    myTimer.detach();
+
+    std::cout << "info nodes " << nodes << " nps ";
+    if (dur == 0){
+        std::cout << "0\n";
+    } else {
+        std::cout  << (int) ((float) nodes * 1000 / dur);
+    }
+    std::cout << "\nbestmove " << moveToAlgebraic(bestMove) << '\n';
+
+    return boardEval;
+}
+
+
+

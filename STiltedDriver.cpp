@@ -13,23 +13,28 @@ int main(){
     initializeAll();
 
     std::string command;
+    std::string param;
     bool originalMove;
-    std::string move;
+    uint64_t* woriginal = new uint64_t[7];
+    uint64_t* boriginal = new uint64_t[7];
 
-    int64_t dur;
+    //std::string move;
+    //int64_t dur;
 
     std::cout << "Shatranj Tilted 14 by TheTilted096\n";
 
     int alpha = -30000; //assume position is bad (you want to increase this)
     int beta = 30000; //good for your opponent (you want to decrease this)
 
+
+
     while (true){
         getline(std::cin, command);
         //std::cout << "command received: " << command << '\n';
         if (command == "quit"){ //self explanatory; just quit the program.
-            delete[] white;
-            delete[] black; 
-            deleteLookupTables();
+            delete[] woriginal;
+            delete[] boriginal;
+            cleanupAll();
             return 0;
         }
         if (command == "uci"){
@@ -63,17 +68,14 @@ int main(){
                     //std::cout << extraMoveList[i] << '\n';
                 }
 
-                uint32_t* allMoves;
-
                 for (int i = 0; i < extraMoves; i++){ //for each move found
-                    allMoves = fullMoveGen(); //generate all the moves
-                    for (int j = 0; j < allMoves[0]; j++){ //for each of the moves generated
-                        if (moveToAlgebraic(allMoves[j + 1]) == extraMoveList[i]){ //get their alg representation and compare
-                            makeMove(allMoves[j + 1], 1, 0); //if so, make the move
+                    fullMoveGen(0); //generate all the moves
+                    for (int j = 0; j < moves[0][0]; j++){ //for each of the moves generated
+                        if (moveToAlgebraic(moves[0][j + 1]) == extraMoveList[i]){ //get their alg representation and compare
+                            makeMove(moves[0][j + 1], 1, 0); //if so, make the move
                             break;
                         }
                     }
-                    delete[] allMoves;
                 }
 
             }
@@ -99,6 +101,7 @@ int main(){
 
             std::cout << "bestmove " << moveToAlgebraic(allMoves[randindex]) << '\n';
             */
+            /* Tilted 14
             originalMove = toMove;
             nodes = 0;
             auto start = std::chrono::steady_clock::now();
@@ -122,6 +125,42 @@ int main(){
             std::cout << "bestmove " << moveToAlgebraic(bestMove) << '\n';
             
             toMove = originalMove;
+            */
+            if (command.length() < 4){
+                std::cout << "Unsupported Use of 'go'\n";
+                continue;
+            }
+            loadPos(woriginal, boriginal, originalMove, 1);
+            std::stringstream goStream(command.substr(3));
+            std::string ourTime = toMove ? "wtime" : "btime";
+            std::string ourInc = toMove ? "winc" : "binc";
+
+            int tTime = INT_MAX;
+            int tDepth = INT_MAX;
+
+            while (!goStream.eof()){
+                goStream >> param;
+                if (param == ourTime){
+                    goStream >> param;
+                    tTime = stoi(param) / 50;
+                }
+                if (param == ourInc){
+                    goStream >> param;
+                    tTime += stoi(param) / 2;
+                }
+                if (param == "depth"){
+                    goStream >> param;
+                    tDepth = stoi(param);
+                }
+                if (param == "nodes"){
+                    goStream >> param;
+                    mnodes = stoi(param);
+                }
+            }
+            iterativeDeepening(alpha, beta, tTime, tDepth);
+            loadPos(woriginal, boriginal, originalMove, 0);
+            nodes = 0;
+            mnodes = 1000000000;
         }
         if (command.substr(0, 6) == "perft "){
             originalMove = toMove;

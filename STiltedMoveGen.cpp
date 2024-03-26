@@ -14,7 +14,7 @@ TheTilted096, 3-8-2024.
 #include <chrono>
 #include <sstream>
 #include <random>
-#include <ctime>
+#include <thread>
 
 // #include <bits/stdc++.h>
 #pragma GCC target("popcnt")
@@ -40,7 +40,11 @@ uint32_t bestMove;
 uint64_t*** tables;
 int boardEval;
 
+uint32_t moves[64][128];
+
 int wtotal, btotal;
+volatile bool timeExpired;
+uint64_t mnodes = 1000000000;
 
 //int evalIncr[33];
 
@@ -133,6 +137,13 @@ void printSidesBitboard(uint64_t *side)
     }
 }
 
+void printAllBitboards(){
+    std::cout << "\nWhite's Pieces\n";
+    printSidesBitboard(white);
+    std::cout << "\nBlack's Pieces\n";
+    printSidesBitboard(black);
+}
+
 void setStartPos(){
     black[0] = 8ULL;
     black[1] = 129ULL;
@@ -151,6 +162,22 @@ void setStartPos(){
     white[6] = (RANK0 << 48) | (RANK0 << 56);
 
     toMove = true;
+}
+
+void loadPos(uint64_t*& wo, uint64_t*& bo, bool& to, bool forward){
+    if (forward){
+        for (int i = 0; i < 7; i++){
+            wo[i] = white[i];
+            bo[i] = black[i];
+        }
+        to = toMove;
+    } else {
+        for (int i = 0; i < 7; i++){
+            white[i] = wo[i];
+            black[i] = bo[i];
+        }
+        toMove = to;
+    }
 }
 
 uint64_t genEmptyStraight(uint8_t start, uint8_t len){
@@ -470,6 +497,12 @@ void initializeAll(){
             mps[i][j] += values[i];
         }
     }
+
+    for (int i = 0; i < 64; i++){
+        for (int j = 0; j < 128; j++){
+            moves[i][j] = 0;
+        }
+    }
     
     /*
     for (int i = 0; i < 33; i++){
@@ -740,18 +773,16 @@ uint8_t *orderedPieceIndices(uint64_t *side)
     return result;
 }
 
-uint32_t *fullMoveGen(){
+void fullMoveGen(int ply){
     uint64_t *moveSetList = pseudolegal(); // generate the pseudolegal moves
-    uint64_t *fr;                                             // assign friend and enemy pointers
+    //std::cout << "Pseudolegals Generated\n";
+    uint64_t *fr;                          // assign friend and enemy pointers
     uint64_t *en;
 
-    if (toMove)
-    {
+    if (toMove){
         fr = white;
         en = black;
-    }
-    else
-    {
+    } else {
         fr = black;
         en = white;
     }
@@ -767,30 +798,18 @@ uint32_t *fullMoveGen(){
         moveListList[i] = movesetToMoves(startSquares[i + 1], moveSetList[i + 1], pieceIndices[i + 1]);
     }
 
-    /*// prints all the moves
-    for (int i = 0; i < moveSetList[0]; i++){
-       for (int j = 0; j < (moveListList[i])[0]; j++){
-            printMoveAsBinary(moveListList[i][j + 1]);
-       }
-       std::cout << '\n';
-    }
-    */
     int total = 0;
-    for (int i = 0; i < bits; i++)
-    {
+    for (int i = 0; i < bits; i++){
         total += moveListList[i][0];
     }
 
-    uint32_t *finalMoveList = new uint32_t[total + 1];
-    finalMoveList[0] = total;
+    moves[ply][0] = total;
 
     int index = 1;
 
-    for (int i = 0; i < bits; i++)
-    { // each piece has a movelist with it
-        for (int j = 0; j < (moveListList[i][0]); j++)
-        {
-            finalMoveList[index] = moveListList[i][j + 1];
+    for (int i = 0; i < bits; i++){ // each piece has a movelist with it
+        for (int j = 0; j < (moveListList[i][0]); j++){
+            moves[ply][index] = moveListList[i][j + 1];
             index++;
         }
     }
@@ -811,8 +830,6 @@ uint32_t *fullMoveGen(){
     delete[] startSquares;
     delete[] pieceIndices;
     delete[] moveSetList;
-
-    return finalMoveList;
 }
 
 /*
@@ -1002,6 +1019,15 @@ bool isChecked(){
     return false;
 }
 
+void endHandle(){
+    if (timeExpired){
+        throw "Time Expired\n";
+    }
+    if (nodes > mnodes){
+        throw "Nodes Exceeded\n";
+    }
+}
+
 uint64_t perft(int depth, int ply){
     uint64_t nodes = 0; // initialize
     if (depth == 0){ //
@@ -1010,14 +1036,16 @@ uint64_t perft(int depth, int ply){
 
     uint64_t additional = 0;
 
-    uint32_t *moves = fullMoveGen(); //generate for whoever's move it is
-    for (int i = 0; i < moves[0]; i++)
-    {
-        makeMove(moves[i + 1], 1, 0);
+    fullMoveGen(ply); //generate for whoever's move it is
+    for (int i = 0; i < moves[ply][0]; i++){
+        makeMove(moves[ply][i + 1], 1, 0);
+
+        endHandle();
+        
         if (isChecked()){                                            // if is checked
-            makeMove(moves[i + 1], 0, 0); // unmake the move
-            // printMoveAsBinary(moves[i + 1]);
-            // std::cout << moveToAlgebraic(moves[i + 1]) << " rejected by check on " << color << '\n';
+            makeMove(moves[ply][i + 1], 0, 0); // unmake the move
+            // printMoveAsBinary(moves[ply][i + 1]);
+            // std::cout << moveToAlgebraic(moves[ply][i + 1]) << " rejected by check on " << color << '\n';
             // printSidesBitboard(black);
 
             continue; // continue to the next iteration.
@@ -1026,20 +1054,18 @@ uint64_t perft(int depth, int ply){
 
         if (ply == 0)
         {
-            std::cout << moveToAlgebraic(moves[i + 1]) << ": " << additional << '\n';
-            //printMoveAsBinary(moves[i + 1]);
+            std::cout << moveToAlgebraic(moves[ply][i + 1]) << ": " << additional << '\n';
+            //printMoveAsBinary(moves[ply][i + 1]);
         }
 
         nodes += additional;
-        makeMove(moves[i + 1], 0, 0);
+        makeMove(moves[ply][i + 1], 0, 0);
     }
-    delete[] moves;
     return nodes;
 }
 
 int pieceFenIndex(char p){
-    if (p > 64 and p < 91)
-    {
+    if (p > 64 and p < 91){
         p += 32;
     }
     char orderedpieces[6] = {'k', 'r', 'n', 'q', 'b', 'p'};
@@ -1055,13 +1081,11 @@ void placeFenPiece(char p, int square){
     int pieceindex = pieceFenIndex(p);
     uint64_t piecebb = 1ULL << square;
 
-    if (p > 96)
-    {
+    if (p > 96){
         black[pieceindex] |= piecebb;
         black[6] |= piecebb;
     }
-    if (p < 91)
-    {
+    if (p < 91){
         white[pieceindex] |= piecebb;
         white[6] |= piecebb;
     }
@@ -1075,8 +1099,7 @@ Example: BqNN4/3b4/pN1b4/1b1BN3/3b1PP1/Pr1NP1b1/4P1P1/qkB3KQ w - - 0 1
 */
 
 void emptyBoard(){
-    for (int i = 0; i < 7; i++)
-    {
+    for (int i = 0; i < 7; i++){
         white[i] = 0;
         black[i] = 0;
     }
@@ -1089,8 +1112,7 @@ uint8_t readFen(std::string fen){
     int currSquare = 0;
     char currChar;
 
-    while (currSquare < 64)
-    {
+    while (currSquare < 64){
         currChar = fen[index];
         if (currChar == '/')
         { // if there is a slash, ignore it
@@ -1111,23 +1133,16 @@ uint8_t readFen(std::string fen){
 
     index++;                 // skip over a space
     toMove = fen[index] & 1; //'w' = 119, and 'b' = 98.
-    /*
-    for (int i = 0; i < 6; i++){
-        index++;
-        std::cout << fen[index] << '\t' << (int) fen[index] << '\n';
-    }
-    */
+ 
     index += 6;
     // std::cout << fen[index - 1];
 
-    if (index > fen.length())
-    { // some FEN's don't contain the move counters
+    if (index > fen.length()){ // some FEN's don't contain the move counters
         return 0;
     }
 
     std::string hmovestring = "";
-    while (fen[index] != ' ')
-    {
+    while (fen[index] != ' '){
         hmovestring += fen[index];
         index++;
     }
@@ -1135,24 +1150,16 @@ uint8_t readFen(std::string fen){
 
     index += 9;
 
-    if (index > fen.length())
-    {
+    if (index > fen.length()){
         return halfmoves;
     }
 
-    /*
-    for (int i = 0; i < 9; i++){
-        std::cout << fen[index] << '\t' << (int) fen[index] << '\n';
-        index++;
-    }
-    */
 
     std::string movesstring = fen.substr(index);
     std::stringstream movestream(movesstring);
 
     int extraMoves = 1;
-    for (char c : movesstring)
-    {
+    for (char c : movesstring){
         if (c == ' ')
         {
             extraMoves++;
@@ -1160,25 +1167,21 @@ uint8_t readFen(std::string fen){
     }
 
     std::string extraMoveList[extraMoves];
-    for (int i = 0; i < extraMoves; i++)
-    {
+    for (int i = 0; i < extraMoves; i++){
         movestream >> extraMoveList[i];
         // std::cout << extraMoveList[i] << '\n';
     }
-
-    uint32_t *allMoves;
     //bool color = 1;
 
     for (std::string m : extraMoveList)
     {                                                 // for each move found
-        allMoves = fullMoveGen(); // generate all the moves
-        for (int i = 0; i < allMoves[0]; i++)
+        fullMoveGen(0); // generate all the moves
+        for (int i = 0; i < moves[0][0]; i++)
         { // for each of the moves generated
-            if (moveToAlgebraic(allMoves[i + 1]) == m){     // get their alg representation and compare
-                makeMove(allMoves[i + 1], 1, 0); // if so, make the move
+            if (moveToAlgebraic(moves[0][i + 1]) == m){     // get their alg representation and compare
+                makeMove(moves[0][i + 1], 1, 0); // if so, make the move
             }
         }
-        delete[] allMoves;
         //color = !color;
     }
 
