@@ -132,6 +132,19 @@ int alphabeta(int alpha, int beta, int depth, int ply){
             continue;
         }
 
+        int index = totalHalfMoves; //start iterator
+        int reps = 0; //keep track of repetitions
+        while (currentHalfMoves[index] != 0){ //search until you hit a reset
+            if (zHistory[totalHalfMoves] == zHistory[index]){ //compare current position 
+                reps++; //if equal, you found repetition
+            }
+            index -= 2;
+        }
+        if (reps > 2){ //if more than 2 repetitions (3), its a draw; unmake and return 0
+            makeMove(moves[ply][i + 1], 0, 1);
+            return 0;
+        }
+
         score = -alphabeta(-beta, -alpha, depth - 1, ply + 1); //do for opp
         if (score >= beta){ //if opp makes a bad move (they would not do this)
             makeMove(moves[ply][i + 1], 0, 1); //unmake the move.

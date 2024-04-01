@@ -38,7 +38,8 @@ int main(){
             return 0;
         }
         if (command == "uci"){
-            std::cout << "id name Shatranj Tilted 17+\nid author TheTilted096\noption name UCI_Variant type combo default shatranj var shatranj\nuciok\n";
+            std::cout << "id name Shatranj Tilted 17+\nid author TheTilted096\n";
+            std::cout << "option name UCI_Variant type combo default shatranj var shatranj\nuciok\n";
         }
         if (command == "isready"){
             std::cout << "readyok\n";
@@ -48,6 +49,7 @@ int main(){
         }
         if (command.substr(0, 17) == "position startpos"){
             setStartPos();
+            zobristHashPosition();
 
             //"position startpos moves "...;
             if (command.length() > 25){
@@ -79,6 +81,7 @@ int main(){
                 }
 
             }
+        
         }
         if (command.substr(0, 12) == "position fen"){
             //std::cout << command.substr(13) << '\n';
@@ -132,6 +135,8 @@ int main(){
                 continue;
             }
             loadPos(woriginal, boriginal, originalMove, 1);
+            int originalCounter = totalHalfMoves;
+
             std::stringstream goStream(command.substr(3));
             std::string ourTime = toMove ? "wtime" : "btime";
             std::string ourInc = toMove ? "winc" : "binc";
@@ -163,6 +168,7 @@ int main(){
             loadPos(woriginal, boriginal, originalMove, 0);
             nodes = 0;
             mnodes = 1000000000;
+            totalHalfMoves = originalCounter;
         }
         if (command.substr(0, 6) == "perft "){
             originalMove = toMove;
@@ -182,7 +188,12 @@ int main(){
             printSidesBitboard(black);
         }
         if (command == "testfeature"){
-            std::cout << "No Feature To Test\n";
+            for (int i = 0; i < totalHalfMoves + 1; i++){
+                std::cout << "ZH " << i << ":\t" << zHistory[i];
+                std::cout << "\tCTR " << i << ":\t" << currentHalfMoves[i] << '\n';
+            }
+
+            //zobristHashPosition();
         }
 
 

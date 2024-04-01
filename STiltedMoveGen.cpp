@@ -48,6 +48,13 @@ uint64_t mnodes = 1000000000;
 
 uint64_t nodes;
 
+uint64_t zPieceKeys[2][6][64];
+uint64_t zTurnKey;
+uint64_t zHistory[1024];
+
+int totalHalfMoves;
+int currentHalfMoves[1024];
+
 int mps[6][64] = 
 {
 {-50, -40, -30, -20, -20, -30, -40, -50, /*King*/
@@ -105,10 +112,8 @@ int mps[6][64] =
 0, 0, 0, 0, 0, 0, 0, 0}
 };
 
-void printAsBitboard(uint64_t board)
-{
-    for (int i = 0; i < 64; i++)
-    {
+void printAsBitboard(uint64_t board){
+    for (int i = 0; i < 64; i++){
         std::cout << (board & 1ULL);
         if ((i & 7) == 7)
         {
@@ -119,14 +124,10 @@ void printAsBitboard(uint64_t board)
     std::cout << '\n';
 }
 
-void printSidesBitboard(uint64_t *side)
-{
-    for (int i = 0; i < 8; i++)
-    {
-        for (int j = 0; j < 7; j++)
-        {
-            for (int k = 8 * i; k < 8 * i + 8; k++)
-            {
+void printSidesBitboard(uint64_t *side){
+    for (int i = 0; i < 8; i++){
+        for (int j = 0; j < 7; j++){
+            for (int k = 8 * i; k < 8 * i + 8; k++){
                 std::cout << ((side[j] >> k) & 1);
             }
             std::cout << '\t';
@@ -151,8 +152,7 @@ void setStartPos(){
     black[5] = RANK0 << 8;
     black[6] = RANK0 | (RANK0 << 8);
 
-    for (int i = 0; i < 5; i++)
-    {
+    for (int i = 0; i < 5; i++){
         white[i] = black[i] << 56;
     }
 
@@ -299,8 +299,7 @@ void generateHorizontalLookup(){
     tables[0][0][0] = 254; // edge case
 
     // suppose i = 0
-    for (int j = 1; j < 64; j++)
-    { // for each of the 63 remaining 6 bit combos
+    for (int j = 1; j < 64; j++){ // for each of the 63 remaining 6 bit combos
         for (int k = 0; k < __builtin_ctz(j << 1); k++)
         {                      // for each trailing unset bit and 1 after
             rMoves.set(k + 1); // set the in the rank move
@@ -314,8 +313,7 @@ void generateHorizontalLookup(){
 
     tables[0][7][0] = 127;
     // suppose i = 7
-    for (int j = 1; j < 64; j++)
-    {
+    for (int j = 1; j < 64; j++){
         for (int k = 0; k < __builtin_clz(j << 1) - 24; k++)
         {
             rMoves.set(6 - k);
@@ -328,32 +326,25 @@ void generateHorizontalLookup(){
     }
 
     int index;
-    for (int i = 1; i < 7; i++)
-    { // i = rookFile in the middle
-        for (int j = 0; j < 64; j++)
-        { // j = middle 6 bits
+    for (int i = 1; i < 7; i++){ // i = rookFile in the middle
+        for (int j = 0; j < 64; j++){ // j = middle 6 bits
             middle = std::bitset<8>(j << 1);
-            if (!middle[i])
-            { // if ith bit is not set
+            if (!middle[i]){ // if ith bit is not set
                 // no need to generate because ith bit must be set in occupied board.
                 continue;
             }
             index = i - 1; // going left
-            while (true)
-            {
+            while (true){
                 rMoves.set(index);
-                if (middle[index] or (index == 0))
-                { // if we encounter a set bit or reach the end
+                if (middle[index] or (index == 0)){ // if we encounter a set bit or reach the end
                     break;
                 }
                 index--;
             }
             index = i + 1;
-            while (true)
-            {
+            while (true){
                 rMoves.set(index);
-                if (middle[index] or (index == 7))
-                { // same
+                if (middle[index] or (index == 7)){ // same
                     break;
                 }
                 index++;
@@ -449,6 +440,21 @@ void deleteLookupTables(){
     delete[] tables[2];
 }
 
+void generateZobristKeys(){
+    //DE92F5AD5A5EAD57
+    //1011111010010010111101011010110101011010010111101010110101010111
+    std::mt19937_64 mt{0xDE92F5AD5A5EAD57};
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 6; j++){
+            for (int k = 0; k < 64; k++){
+                zPieceKeys[i][j][k] = mt();
+            }
+        }
+    }
+
+    zTurnKey = mt();
+}
+
 uint8_t *bitboardToList(uint64_t board){
     int bits = __builtin_popcountll(board);
     uint8_t *list = new uint8_t[bits + 1];
@@ -456,10 +462,8 @@ uint8_t *bitboardToList(uint64_t board){
     int b = 0;
     int index = 1;
 
-    while (board)
-    {
-        if (board & 1)
-        {
+    while (board){
+        if (board & 1){
             list[index] = b;
             index++;
         }
@@ -470,16 +474,50 @@ uint8_t *bitboardToList(uint64_t board){
     return list;
 }
 
+void zobristHashPosition(){ //called upon the first hash of a position, before moves
+    //just XOR EVERYTHING
+    totalHalfMoves = 0;
+    zHistory[0] = 0;
+    uint8_t* wlist;
+    uint8_t* blist;
+
+    for (int i = 0; i < 6; i++){
+        wlist = bitboardToList(white[i]);
+        blist = bitboardToList(black[i]);
+
+        for (int j = 0; j < wlist[0]; j++){
+            zHistory[0] ^= zPieceKeys[1][i][wlist[j + 1]];
+            //std::cout << "W : " << i << " : " << (int) wlist[j + 1] << " : " << zPieceKeys[1][i][wlist[j + 1]] << '\n';
+            //std::cout << "\tR in ZH Func: " << zHistory[0] << '\n';
+        }
+        for (int j = 0; j < blist[0]; j++){
+            zHistory[0] ^= zPieceKeys[0][i][blist[j + 1]];
+            //std::cout << "B : " << i << " : " << (int) blist[j + 1] << " : " << zPieceKeys[0][i][blist[j + 1]] << '\n';
+            //std::cout << "\tR in ZH Func: " << zHistory[0] << '\n';
+        }
+        delete[] wlist;
+        delete[] blist;
+    }
+    
+    if (!toMove){ //if black to move, hash
+        zHistory[0] ^= zTurnKey;
+        //std::cout << "TurnKey Used: " << zTurnKey << '\n';
+    }
+
+    currentHalfMoves[0] = 0;
+}
+
 void initializeAll(){
     white = new uint64_t[7];
     black = new uint64_t[7];
     setStartPos();
+    //zobristHashPosition();
     nodes = 0;
     wtotal = 0;
 
     uint8_t* wlist;
     int values[6] = {0, 650, 400, 200, 150, 100};
-    for (int i = 0; i < 6; i++){
+    for (int i = 0; i < 6; i++){ //initialize eval manually
         wlist = bitboardToList(white[i]);
         wtotal += (__builtin_popcountll(white[i]) * values[i]);
         for (int j = 0; j < wlist[0]; j++){
@@ -487,27 +525,25 @@ void initializeAll(){
         }
         delete[] wlist;
     }
-
     btotal = wtotal;
-
-    for (int i = 0; i < 6; i++){
+    
+    for (int i = 0; i < 6; i++){ //add piece values to mps values
         for (int j = 0; j < 64; j++){
             mps[i][j] += values[i];
         }
     }
 
-    for (int i = 0; i < 64; i++){
+    for (int i = 0; i < 64; i++){ //0-initialize move array
         for (int j = 0; j < 128; j++){
             moves[i][j] = 0;
         }
     }
-    
-    /*
-    for (int i = 0; i < 33; i++){
-        evalIncr[i] = 0;
-    }
-    */
 
+    for (int i = 0; i < 1024; i++){ //0-Initialize zobrist array
+        zHistory[i] = 0;
+        currentHalfMoves[i] = 0;
+    }
+    generateZobristKeys();
     generateLookupTables();
 }
 
@@ -900,12 +936,6 @@ void makeMove(uint32_t move, bool forward, bool ev){
 
     bool color = move >> 23;
 
-    /*
-    std::cout << color << ' ' << (int) typeEnded << ' ' << promoting
-        << ' ' << (int) typeMoved << ' ' << (int) captureType << ' ' << capturing
-        << ' ' << (int) endsquare << ' ' << (int) startsquare << '\n';
-    */
-
     uint64_t *fr;
     uint64_t *en;
 
@@ -930,18 +960,36 @@ void makeMove(uint32_t move, bool forward, bool ev){
 
     if (forward){
         nodes++;
+        totalHalfMoves++;
+
+        uint64_t zFactor = 0; //update zobrist key
+        zFactor ^= zPieceKeys[toMove][typeMoved][startsquare]; //xor out original piece and square
+        zFactor ^= zPieceKeys[toMove][typeEnded][endsquare]; //xor in new piece and square
+        if (capturing){
+            zFactor ^= zPieceKeys[!toMove][captureType][endsquare]; //xor out the captured piece
+        }
+        zFactor ^= zTurnKey;
+        zHistory[totalHalfMoves] = zHistory[totalHalfMoves - 1] ^ zFactor;
+
+        if (capturing or (typeMoved == 5)){
+            currentHalfMoves[totalHalfMoves] = 0;
+        } else {
+            currentHalfMoves[totalHalfMoves] = currentHalfMoves[totalHalfMoves - 1] + 1;
+        }
+    } else {
+        totalHalfMoves--;
     }
 
     if (ev){
         int b, c;
         evaluateMove(move, b, c);
-        if (forward){
+        if (forward){ //forwards
             if (toMove){
                 wtotal += b; btotal -= c;
             } else {
                 wtotal -= c; btotal += b;
             }
-        } else {
+        } else { //backwards
             if (!toMove){
                 wtotal -= b; btotal += c;
             } else {
@@ -1122,6 +1170,8 @@ uint8_t readFen(std::string fen){
  
     index += 6;
     // std::cout << fen[index - 1];
+
+    zobristHashPosition();
 
     if (index > fen.length()){ // some FEN's don't contain the move counters
         return 0;
