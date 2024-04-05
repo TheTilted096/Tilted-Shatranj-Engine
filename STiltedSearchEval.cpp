@@ -108,6 +108,19 @@ int quiesce(int alpha, int beta, int lply){
 int alphabeta(int alpha, int beta, int depth, int ply){
     int score = -29000;
 
+    int index = totalHalfMoves; //start iterator
+    int reps = 0; //keep track of repetitions
+    while (currentHalfMoves[index] != 0){ //search until you hit a reset
+        if (zHistory[totalHalfMoves] == zHistory[index]){ //compare current position 
+            reps++; //if equal, you found repetition
+        }
+        index -= 2;
+    }
+    if (reps > 2){ //if more than 2 repetitions (3), its a draw; unmake and return 0
+        //std::cout << "Terminated by Repetitions\n";
+        return 0;
+    }
+
     if (depth == 0){
         /* No Qsearch
         if (toMove){ // if white to move
@@ -120,34 +133,33 @@ int alphabeta(int alpha, int beta, int depth, int ply){
     }
 
     fullMoveGen(ply, 0);
+    /*
+    std::cout << "Ply: " << ply << '\n';
+    for (int ll = 0; ll < moves[ply][0]; ll++){
+        std::cout << moveToAlgebraic(moves[ply][ll + 1]) << ' ';
+    }
+    */
 
     for (int i = 0; i < moves[ply][0]; i++){ //for each move
         makeMove(moves[ply][i + 1], 1, 1); //make the move.
+        //std::cout << "Considering:\t" << moveToAlgebraic(moves[ply][i + 1]) << '\n';
 
         endHandle();
 
         if (isChecked() or kingBare()){ //if is checked
             //std::cout << "\nMove Rejected: " << moveToAlgebraic(moves[ply][i + 1]) << '\n';
             makeMove(moves[ply][i + 1], 0, 1); //unmake the move
+            //std::cout << "Terminated by Illegal\n";
             continue;
         }
 
-        int index = totalHalfMoves; //start iterator
-        int reps = 0; //keep track of repetitions
-        while (currentHalfMoves[index] != 0){ //search until you hit a reset
-            if (zHistory[totalHalfMoves] == zHistory[index]){ //compare current position 
-                reps++; //if equal, you found repetition
-            }
-            index -= 2;
-        }
-        if (reps > 2){ //if more than 2 repetitions (3), its a draw; unmake and return 0
-            makeMove(moves[ply][i + 1], 0, 1);
-            return 0;
-        }
-
         score = -alphabeta(-beta, -alpha, depth - 1, ply + 1); //do for opp
+
+        makeMove(moves[ply][i + 1], 0, 1); //unmake the move.
+
         if (score >= beta){ //if opp makes a bad move (they would not do this)
-            makeMove(moves[ply][i + 1], 0, 1); //unmake the move.
+            //std::cout << "Terminated by Refutation\n";
+
             return beta;   //  fail hard beta-cutoff
         }
         if (score > alpha){ //yay best move
@@ -155,8 +167,8 @@ int alphabeta(int alpha, int beta, int depth, int ply){
                 bestMove = moves[ply][i + 1];
             }
             alpha = score; // alpha acts like max in MiniMax  
-        }      
-        makeMove(moves[ply][i + 1], 0, 1); //unmake the move.
+
+        }
     }
 
     if (score == -29000){
@@ -188,7 +200,7 @@ int iterativeDeepening(int alpha, int beta, int thinkTime, int mdepth){
 
     auto start = std::chrono::steady_clock::now();
     try {
-        for (int i = 0; i < mdepth; i++){
+        for (int i = 0; i < mdepth + 1; i++){
             prevNodes = nodes;
             cbEval = alphabeta(alpha, beta, i, 0);
             cbMove = bestMove;
@@ -196,7 +208,7 @@ int iterativeDeepening(int alpha, int beta, int thinkTime, int mdepth){
         }
     } catch (const char* e){
         timeExpired = false;
-        std::cout << e;
+        //std::cout << e;
         boardEval = cbEval;
         bestMove = cbMove;
     }

@@ -21,7 +21,7 @@ int main(){
     //std::string move;
     //int64_t dur;
 
-    std::cout << "Shatranj Tilted 17+ by TheTilted096\n";
+    std::cout << "Shatranj Tilted 18 by TheTilted096\n";
 
     int alpha = -30000; //assume position is bad (you want to increase this)
     int beta = 30000; //good for your opponent (you want to decrease this)
@@ -38,7 +38,7 @@ int main(){
             return 0;
         }
         if (command == "uci"){
-            std::cout << "id name Shatranj Tilted 17+\nid author TheTilted096\n";
+            std::cout << "id name Shatranj Tilted 18\nid author TheTilted096\n";
             std::cout << "option name UCI_Variant type combo default shatranj var shatranj\nuciok\n";
         }
         if (command == "isready"){
@@ -82,6 +82,7 @@ int main(){
 
             }
         
+            //std::cout << "Moves Read In Correctly\n";
         }
         if (command.substr(0, 12) == "position fen"){
             //std::cout << command.substr(13) << '\n';
@@ -148,7 +149,7 @@ int main(){
                 goStream >> param;
                 if (param == ourTime){
                     goStream >> param;
-                    tTime = stoi(param) / 50;
+                    tTime = stoi(param) / 40;
                 }
                 if (param == ourInc){
                     goStream >> param;
@@ -164,6 +165,7 @@ int main(){
                 }
             }
             nodes = 0;
+            //std::cout << "Thinktime: " << tTime << "\tThinkDepth: " << tDepth << '\n';
             iterativeDeepening(alpha, beta, tTime, tDepth);
             loadPos(woriginal, boriginal, originalMove, 0);
             nodes = 0;
@@ -186,14 +188,16 @@ int main(){
             printSidesBitboard(white);
             std::cout << "\nBlack's Pieces\n";
             printSidesBitboard(black);
+
+            std::cout << "toMove:\t" << toMove << '\n';
         }
         if (command == "testfeature"){
+            /* Zobrist Hash Debug
             for (int i = 0; i < totalHalfMoves + 1; i++){
                 std::cout << "ZH " << i << ":\t" << zHistory[i];
                 std::cout << "\tCTR " << i << ":\t" << currentHalfMoves[i] << '\n';
             }
-
-            //zobristHashPosition();
+            */
         }
 
 

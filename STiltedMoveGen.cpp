@@ -543,6 +543,7 @@ void initializeAll(){
         zHistory[i] = 0;
         currentHalfMoves[i] = 0;
     }
+
     generateZobristKeys();
     generateLookupTables();
 }
@@ -1223,5 +1224,4 @@ uint8_t readFen(std::string fen){
 
     return halfmoves;
 }
-
 
