@@ -206,21 +206,17 @@ uint64_t genEmptyDiagonal(uint8_t start, uint8_t distance){
 
     uint64_t set = 0;
 
-    if (r >= c)
-    {
+    if (r >= c){
         set |= (LDIAG << (8 * (r - c)));
     }
-    if (r < c)
-    {
+    if (r < c){
         set |= (LDIAG >> (8 * (c - r)));
     }
 
-    if (r + c <= 7)
-    {
+    if (r + c <= 7){
         set |= (RDIAG >> (8 * (7 - r - c)));
     }
-    if (r + c > 7)
-    {
+    if (r + c > 7){
         set |= (RDIAG << (8 * (r + c - 7)));
     }
 
@@ -443,7 +439,7 @@ void deleteLookupTables(){
 void generateZobristKeys(){
     //DE92F5AD5A5EAD57
     //1011111010010010111101011010110101011010010111101010110101010111
-    std::mt19937_64 mt{0xDE92F5AD5A5EAD57};
+    std::mt19937_64 mt{0xDE92F5AD7A5EAD57};
     for (int i = 0; i < 2; i++){
         for (int j = 0; j < 6; j++){
             for (int k = 0; k < 64; k++){
@@ -511,7 +507,7 @@ void initializeAll(){
     white = new uint64_t[7];
     black = new uint64_t[7];
     setStartPos();
-    //zobristHashPosition();
+    //szobristHashPosition();
     nodes = 0;
     wtotal = 0;
 
@@ -635,12 +631,10 @@ uint64_t *pseudolegal(){
 
     // std::cout << "Indicator 2\n\n";
 
-    for (int i = 0; i < 6; i++)
-    { // for each type of piece (excluding pawns)
+    for (int i = 0; i < 6; i++){ // for each type of piece (excluding pawns)
         // std::cout << "Started Main Loop iter " << i << "\n\n";
         pieces = bitboardToList(side[i]); // convert piece bitboard to a list of starting squares
-        for (int j = 0; j < pieces[0]; j++)
-        { // iterate through the piece starting squares and generate moves for the specified piece type
+        for (int j = 0; j < pieces[0]; j++){ // iterate through the piece starting squares and generate moves for the specified piece type
             result[index] = fsinglemoveset(pieces[j + 1], toMove, i);
             // the f(inal)single(piece)moveset for each piece written into the set of movesets
             // parameters: the location, piececolor, white pieces, black pieces, and piece type
@@ -652,8 +646,7 @@ uint64_t *pseudolegal(){
     return result;
 }
 
-uint8_t *orderedStartingSquares(uint64_t *side)
-{
+uint8_t *orderedStartingSquares(uint64_t *side){
     uint8_t *pieces = 0;
 
     int total = __builtin_popcountll(side[6]); // total number of movesets = number of pieces
@@ -691,8 +684,7 @@ uint8_t determineCapture(uint64_t *opp, uint8_t square){
     return 0;
 }
 
-void printMoveAsBinary(uint32_t move)
-{
+void printMoveAsBinary(uint32_t move){
     int spaces[8] = {25, 19, 18, 15, 12, 11, 8, 7};
     uint32_t msb = 1 << 31;
     for (int i = 0; i < 32; i++)
@@ -778,8 +770,7 @@ uint32_t *movesetToMoves(uint8_t start, uint64_t set, uint8_t type, bool capsOnl
     return resultMoves;
 }
 
-uint8_t *orderedPieceIndices(uint64_t *side)
-{
+uint8_t *orderedPieceIndices(uint64_t *side){
     int bits = __builtin_popcountll(side[6]);
     uint8_t *result = new uint8_t[bits + 1];
     result[0] = bits;

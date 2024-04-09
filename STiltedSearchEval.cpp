@@ -33,6 +33,44 @@ Move Representation:
 
 */
 
+class TTentry{
+    public: 
+        int entryScore;
+        uint64_t hash;
+        int nodetype;
+        int depthAt;
+
+        uint32_t entryMove;
+
+        TTentry(){
+            entryScore = -29501;
+            hash = 0;
+            nodetype = -1;
+            depthAt = -1;
+            entryMove = 0;
+        }
+
+        void update(int sc, int nt, int d, uint32_t dm){
+            if ((d >= depthAt) or (zHistory[totalHalfMoves] != hash)){ 
+                //if depth is more than our depth or is a new position
+                entryScore = sc;
+                nodetype = nt;
+                depthAt = d;
+                hash = zHistory[totalHalfMoves];
+                entryMove = dm;
+            }
+        }
+
+        void print(){
+            std::cout << "Index: " << (hash & 0xFFFFF) << "     Score: " << entryScore
+                << "\tdepthAt: " << depthAt << "     nodeType: " << nodetype << "     debugMove: " 
+                    << moveToAlgebraic(entryMove) << '\n';
+        }
+};
+
+TTentry ttable[1048576];
+
+
 int evaluate(){
     wtotal = 0, btotal = 0;
     int values[6] = {0, 650, 400, 200, 150, 100};
@@ -117,39 +155,51 @@ int alphabeta(int alpha, int beta, int depth, int ply){
         index -= 2;
     }
     if (reps > 2){ //if more than 2 repetitions (3), its a draw; unmake and return 0
-        //std::cout << "Terminated by Repetitions\n";
         return 0;
     }
 
     if (depth == 0){
-        /* No Qsearch
-        if (toMove){ // if white to move
-            return (wtotal - btotal);
-        } else {
-            return (btotal - wtotal);
-        }
-        */
         return quiesce(alpha, beta, 0);
     }
 
-    fullMoveGen(ply, 0);
-    /*
-    std::cout << "Ply: " << ply << '\n';
-    for (int ll = 0; ll < moves[ply][0]; ll++){
-        std::cout << moveToAlgebraic(moves[ply][ll + 1]) << ' ';
+    //if no index collision and TT depth > depth and this is not the root call (might change later)
+    int ttindex = zHistory[totalHalfMoves] & 0xFFFFF;
+    if ((zHistory[totalHalfMoves] == ttable[ttindex].hash) and (ttable[ttindex].depthAt >= depth) 
+            and (ply > 0) and (reps == 1)){
+        score = ttable[ttindex].entryScore;
+
+        if (ttable[ttindex].nodetype == 1){ //PV
+            return score;
+        }
+        if ((ttable[ttindex].nodetype == 2) and (score >= beta)){ //cut
+            return score;
+        }
+        if ((ttable[ttindex].nodetype == 3) and (score <= alpha)){ //all
+            return score;
+        }
     }
-    */
+
+    uint32_t localBestMove = 0;
+    bool isAllNode = true; 
+
+    fullMoveGen(ply, 0);
+
+    for (int ll = 0; ll < moves[ply][0]; ll++){
+        if (moves[ply][ll + 1] == ttable[ttindex].entryMove){
+            uint32_t tempMove = moves[ply][1];
+            moves[ply][1] = ttable[ttindex].entryMove;
+            moves[ply][ll + 1] = tempMove;
+            break;
+        }
+    }
 
     for (int i = 0; i < moves[ply][0]; i++){ //for each move
         makeMove(moves[ply][i + 1], 1, 1); //make the move.
-        //std::cout << "Considering:\t" << moveToAlgebraic(moves[ply][i + 1]) << '\n';
 
         endHandle();
 
         if (isChecked() or kingBare()){ //if is checked
-            //std::cout << "\nMove Rejected: " << moveToAlgebraic(moves[ply][i + 1]) << '\n';
             makeMove(moves[ply][i + 1], 0, 1); //unmake the move
-            //std::cout << "Terminated by Illegal\n";
             continue;
         }
 
@@ -158,16 +208,20 @@ int alphabeta(int alpha, int beta, int depth, int ply){
         makeMove(moves[ply][i + 1], 0, 1); //unmake the move.
 
         if (score >= beta){ //if opp makes a bad move (they would not do this)
-            //std::cout << "Terminated by Refutation\n";
-
+            //beta cutoff; cut-nodes (2) 
+            ttable[ttindex].update(score, 2, depth, moves[ply][i + 1]);
             return beta;   //  fail hard beta-cutoff
         }
         if (score > alpha){ //yay best move
             if (ply == 0){ //if this is the root call, save the best move
                 bestMove = moves[ply][i + 1];
             }
-            alpha = score; // alpha acts like max in MiniMax  
 
+            //PV-nodes (1)
+            localBestMove = moves[ply][i + 1];
+            isAllNode = false;
+
+            alpha = score; // alpha acts like max in MiniMax  
         }
     }
 
@@ -175,8 +229,11 @@ int alphabeta(int alpha, int beta, int depth, int ply){
         score += ply;
         return score;
     }
-
-
+    if (isAllNode){ 
+        ttable[ttindex].update(alpha, 3, depth, 0); 
+    } else {
+        ttable[ttindex].update(alpha, 1, depth, localBestMove);
+    }
     return alpha;
 }
 

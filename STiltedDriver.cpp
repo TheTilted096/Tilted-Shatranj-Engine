@@ -21,12 +21,11 @@ int main(){
     //std::string move;
     //int64_t dur;
 
-    std::cout << "Shatranj Tilted 18 by TheTilted096\n";
+    std::cout << "Shatranj Tilted 21(?) by TheTilted096\n";
+    std::cout << "(With lots of help from sscg13 - Prolix Dev)\n";
 
     int alpha = -30000; //assume position is bad (you want to increase this)
     int beta = 30000; //good for your opponent (you want to decrease this)
-
-
 
     while (true){
         getline(std::cin, command);
@@ -46,6 +45,11 @@ int main(){
         }
         if (command == "ucinewgame"){
             setStartPos();
+            for (int i = 0; i < 0xFFFFF; i++){
+                if (ttable[i].nodetype != -1){
+                    ttable[i] = TTentry();
+                }
+            }
         }
         if (command.substr(0, 17) == "position startpos"){
             setStartPos();
@@ -135,6 +139,7 @@ int main(){
                 std::cout << "Unsupported Use of 'go'\n";
                 continue;
             }
+        
             loadPos(woriginal, boriginal, originalMove, 1);
             int originalCounter = totalHalfMoves;
 
@@ -165,8 +170,9 @@ int main(){
                 }
             }
             nodes = 0;
-            //std::cout << "Thinktime: " << tTime << "\tThinkDepth: " << tDepth << '\n';
+            
             iterativeDeepening(alpha, beta, tTime, tDepth);
+            
             loadPos(woriginal, boriginal, originalMove, 0);
             nodes = 0;
             mnodes = 1000000000;
@@ -198,6 +204,19 @@ int main(){
                 std::cout << "\tCTR " << i << ":\t" << currentHalfMoves[i] << '\n';
             }
             */
+            std::cout << "Tranposition Table:\n";
+            for (int k = 1; k < 10; k++){
+                for (int i = 0; i < 0xFFFFF; i++){
+                    if (ttable[i].depthAt == k){
+                        ttable[i].print();
+                    }
+                }
+            }
+
+            std::cout << "\nZobrist History + Last 20 Bits\n";
+            for (int j = 0; j < totalHalfMoves + 1; j++){
+                std::cout << "ZH " << j << ": " << zHistory[j] << "\tIndex: " << (zHistory[j] & 0xFFFFF) << '\n';
+            }
         }
 
 
