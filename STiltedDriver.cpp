@@ -21,7 +21,7 @@ int main(){
     //std::string move;
     //int64_t dur;
 
-    std::cout << "Shatranj Tilted 21(?) by TheTilted096\n";
+    std::cout << "Shatranj Tilted 21-NMP by TheTilted096\n";
     std::cout << "(With lots of help from sscg13 - Prolix Dev)\n";
 
     int alpha = -30000; //assume position is bad (you want to increase this)
@@ -45,6 +45,7 @@ int main(){
         }
         if (command == "ucinewgame"){
             setStartPos();
+            totalHalfMoves = 0;
             for (int i = 0; i < 0xFFFFF; i++){
                 if (ttable[i].nodetype != -1){
                     ttable[i] = TTentry();
@@ -147,7 +148,7 @@ int main(){
             std::string ourTime = toMove ? "wtime" : "btime";
             std::string ourInc = toMove ? "winc" : "binc";
 
-            int tTime = INT_MAX;
+            uint32_t tTime = 0xFFFFFFFF;
             int tDepth = INT_MAX;
 
             while (!goStream.eof()){
@@ -198,12 +199,21 @@ int main(){
             std::cout << "toMove:\t" << toMove << '\n';
         }
         if (command == "testfeature"){
-            /* Zobrist Hash Debug
-            for (int i = 0; i < totalHalfMoves + 1; i++){
-                std::cout << "ZH " << i << ":\t" << zHistory[i];
-                std::cout << "\tCTR " << i << ":\t" << currentHalfMoves[i] << '\n';
+            /*
+            int lply = 0;
+            fullMoveGen(64 + lply, 1); //generate moves and write them in a separate part of the array
+
+            for (int aa = 2; aa < moves[64 + lply][0]; aa++){
+                for (int bb = aa; moves[64 + lply][bb - 1] < moves[64 + lply][bb]; bb--){
+                    std::swap(moves[64 + lply][bb - 1], moves[64 + lply][bb]);
+                }
+            }
+            for (int i = 0; moves[64 + lply][0]; i++){
+                printMoveAsBinary(moves[64 + lply][i + 1]);
             }
             */
+        }
+        if (command == "showTTZobrist"){
             std::cout << "Tranposition Table:\n";
             for (int k = 1; k < 10; k++){
                 for (int i = 0; i < 0xFFFFF; i++){
@@ -212,7 +222,6 @@ int main(){
                     }
                 }
             }
-
             std::cout << "\nZobrist History + Last 20 Bits\n";
             for (int j = 0; j < totalHalfMoves + 1; j++){
                 std::cout << "ZH " << j << ": " << zHistory[j] << "\tIndex: " << (zHistory[j] & 0xFFFFF) << '\n';

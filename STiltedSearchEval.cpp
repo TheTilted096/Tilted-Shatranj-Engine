@@ -70,7 +70,6 @@ class TTentry{
 
 TTentry ttable[1048576];
 
-
 int evaluate(){
     wtotal = 0, btotal = 0;
     int values[6] = {0, 650, 400, 200, 150, 100};
@@ -121,17 +120,26 @@ int quiesce(int alpha, int beta, int lply){
         alpha = failSoft;
     }
 
-    fullMoveGen(32 + lply, 1); //generate moves and write them in a separate part of the array
-    for (int i = 0; i < moves[32 + lply][0]; i++){ //for each move
-        makeMove(moves[32 + lply][i + 1], 1, 1); //make the move.
+
+    fullMoveGen(64 + lply, 1); //generate moves and write them in a separate part of the array
+    /*
+    for (int aa = 2; aa < moves[64 + lply][0]; aa++){
+        for (int bb = aa; moves[64 + lply][bb - 1] < moves[64 + lply][bb]; bb--){
+            std::swap(moves[64 + lply][bb - 1], moves[64 + lply][bb]);
+        }
+    }
+    */
+
+    for (int i = 0; i < moves[64 + lply][0]; i++){ //for each move
+        makeMove(moves[64 + lply][i + 1], 1, 1); //make the move.
         endHandle(); //if there are time/node constraints, handle them
         if (isChecked() or kingBare()){ //if is checked
             //std::cout << "\nMove Rejected: " << moveToAlgebraic(moves[ply][i + 1]) << '\n';
-            makeMove(moves[32 + lply][i + 1], 0, 1); //unmake the move
+            makeMove(moves[64 + lply][i + 1], 0, 1); //unmake the move
             continue;
         }
         score = -quiesce(-beta, -alpha, lply + 1);
-        makeMove(moves[32 + lply][i + 1], 0, 1); //take back the move
+        makeMove(moves[64 + lply][i + 1], 0, 1); //take back the move
         
         if (score >= beta){
             return beta;
@@ -143,7 +151,7 @@ int quiesce(int alpha, int beta, int lply){
     return alpha;
 }
 
-int alphabeta(int alpha, int beta, int depth, int ply){
+int alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     int score = -29000;
 
     int index = totalHalfMoves; //start iterator
@@ -179,6 +187,21 @@ int alphabeta(int alpha, int beta, int depth, int ply){
         }
     }
 
+    nmp = ((wtotal > 1000) and (btotal > 1000)) and !nmp;
+    //nmp enabled if both sides have material and there was no nmp before
+    //nmp disabled if both sides dont have material or there was nmp before
+
+    if (nmp and (ply != 0) and (depth > 1)) {
+        makeMove(0, 1, 1);
+        if (!isChecked()) {
+            score = -alphabeta(-beta, -alpha, depth - 2, ply + 1, nmp);
+        }
+        makeMove(0, 0, 1);
+        if (score >= beta) {
+            return beta;
+        }
+    }
+
     uint32_t localBestMove = 0;
     bool isAllNode = true; 
 
@@ -203,7 +226,7 @@ int alphabeta(int alpha, int beta, int depth, int ply){
             continue;
         }
 
-        score = -alphabeta(-beta, -alpha, depth - 1, ply + 1); //do for opp
+        score = -alphabeta(-beta, -alpha, depth - 1, ply + 1, nmp); //do for opp
 
         makeMove(moves[ply][i + 1], 0, 1); //unmake the move.
 
@@ -243,7 +266,7 @@ void moveTimer(int wait){
     timeExpired = true;
 }
 
-int iterativeDeepening(int alpha, int beta, int thinkTime, int mdepth){
+int iterativeDeepening(int alpha, int beta, uint32_t thinkTime, int mdepth){
     std::thread myTimer;
     if (~thinkTime){
         myTimer = std::thread(moveTimer, thinkTime);
@@ -259,7 +282,7 @@ int iterativeDeepening(int alpha, int beta, int thinkTime, int mdepth){
     try {
         for (int i = 0; i < mdepth + 1; i++){
             prevNodes = nodes;
-            cbEval = alphabeta(alpha, beta, i, 0);
+            cbEval = alphabeta(alpha, beta, i, 0, false); //ensure nmp = 1 when ply = 0
             cbMove = bestMove;
             std::cout << "info depth " << i << " nodes " << nodes - prevNodes << " score cp " << cbEval << '\n';
         }
@@ -272,8 +295,10 @@ int iterativeDeepening(int alpha, int beta, int thinkTime, int mdepth){
     auto end = std::chrono::steady_clock::now();
     auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
-    myTimer.detach();
-
+    if (~thinkTime){
+        myTimer.detach();
+    }
+        
     std::cout << "info nodes " << nodes << " nps ";
     if (dur == 0){
         std::cout << "0\n";

@@ -912,6 +912,17 @@ void evaluateMove(uint32_t& move, int& bonus, int& cap){
 
 void makeMove(uint32_t move, bool forward, bool ev){
     // true -> make, false -> unmake
+    if (move == 0){
+        toMove = !toMove;
+        if (forward){
+            totalHalfMoves++;
+            zHistory[totalHalfMoves] = zHistory[totalHalfMoves - 1] ^ zTurnKey;
+            currentHalfMoves[totalHalfMoves] = currentHalfMoves[totalHalfMoves - 1] + 1;
+        } else {
+            totalHalfMoves--;
+        }
+        return;
+    }
 
     uint8_t startsquare = move & (63U);
     uint8_t endsquare = (move >> 6) & (63U);
@@ -1067,6 +1078,12 @@ uint64_t perft(int depth, int ply){
         makeMove(moves[ply][i + 1], 1, 0);
 
         endHandle();
+        /*
+        if (rand() & 1){
+            makeMove(0, 1, 0);
+            makeMove(0, 0, 0);
+        }
+        */
         
         if (isChecked()){                                            // if is checked
             makeMove(moves[ply][i + 1], 0, 0); // unmake the move
