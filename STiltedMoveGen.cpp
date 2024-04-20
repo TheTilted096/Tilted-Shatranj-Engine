@@ -40,7 +40,7 @@ uint32_t bestMove;
 uint64_t*** tables;
 int boardEval;
 
-uint32_t moves[64][128];
+uint32_t moves[96][128];
 
 int wtotal, btotal;
 volatile bool timeExpired;
@@ -631,7 +631,7 @@ uint64_t *pseudolegal(){
 
     // std::cout << "Indicator 2\n\n";
 
-    for (int i = 0; i < 6; i++){ // for each type of piece (excluding pawns)
+    for (int i = 5; i >= 0; i--){ // for each type of piece (excluding pawns)
         // std::cout << "Started Main Loop iter " << i << "\n\n";
         pieces = bitboardToList(side[i]); // convert piece bitboard to a list of starting squares
         for (int j = 0; j < pieces[0]; j++){ // iterate through the piece starting squares and generate moves for the specified piece type
@@ -656,8 +656,7 @@ uint8_t *orderedStartingSquares(uint64_t *side){
 
     int index = 1;
 
-    for (int i = 0; i < 6; i++)
-    {
+    for (int i = 5; i >= 0; i--){
         pieces = bitboardToList(side[i]);
         for (int j = 0; j < pieces[0]; j++)
         {
@@ -776,10 +775,8 @@ uint8_t *orderedPieceIndices(uint64_t *side){
     result[0] = bits;
 
     int index = 1;
-    for (int i = 0; i < 6; i++)
-    {
-        for (int j = 0; j < __builtin_popcountll(side[i]); j++)
-        {
+    for (int i = 5; i >= 0; i--){
+        for (int j = 0; j < __builtin_popcountll(side[i]); j++){
             result[index] = i;
             index++;
         }
@@ -1095,8 +1092,7 @@ uint64_t perft(int depth, int ply){
         }
         additional = perft(depth - 1, ply + 1);
 
-        if (ply == 0)
-        {
+        if (ply == 0){
             std::cout << moveToAlgebraic(moves[ply][i + 1]) << ": " << additional << '\n';
             //printMoveAsBinary(moves[ply][i + 1]);
         }

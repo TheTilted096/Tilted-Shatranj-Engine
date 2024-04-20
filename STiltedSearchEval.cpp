@@ -120,15 +120,20 @@ int quiesce(int alpha, int beta, int lply){
         alpha = failSoft;
     }
 
-
     fullMoveGen(64 + lply, 1); //generate moves and write them in a separate part of the array
-    /*
-    for (int aa = 2; aa < moves[64 + lply][0]; aa++){
-        for (int bb = aa; moves[64 + lply][bb - 1] < moves[64 + lply][bb]; bb--){
+    
+    for (int aa = 2; aa < moves[64 + lply][0] + 1; aa++){
+        //swap if victim is more valuable then if agro is less valuable
+        //swap bb-1 and bb if ''
+        //then say bb - 1 > bb if index(bb - 1) > bb
+        //index = victim * 10 - agro
+        for (int bb = aa; bb > 1 and 
+            (10 * ((moves[64 + lply][bb - 1] >> 13) & 7) - ((moves[64 + lply][bb - 1] >> 16) & 7)) 
+            > (10 * ((moves[64 + lply][bb] >> 13) & 7) - ((moves[64 + lply][bb] >> 16) & 7))
+            ; bb--){
             std::swap(moves[64 + lply][bb - 1], moves[64 + lply][bb]);
         }
     }
-    */
 
     for (int i = 0; i < moves[64 + lply][0]; i++){ //for each move
         makeMove(moves[64 + lply][i + 1], 1, 1); //make the move.
@@ -149,6 +154,18 @@ int quiesce(int alpha, int beta, int lply){
         }   
     }
     return alpha;
+}
+
+int moveStrength(uint32_t& move){
+    //the stronger the move, the lower
+    int strength = ((move >> 16) & 7) * (-1); //less valuable = better (-a)
+    if ((move >> 12) & 1){ //if capturing
+        strength += (10 * ((move >> 13) & 7)); //10v
+    } else {
+        strength += 100;
+    }
+
+    return strength;    
 }
 
 int alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
@@ -207,12 +224,21 @@ int alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
 
     fullMoveGen(ply, 0);
 
+    bool ttMoveFound = false;
+
     for (int ll = 0; ll < moves[ply][0]; ll++){
         if (moves[ply][ll + 1] == ttable[ttindex].entryMove){
             uint32_t tempMove = moves[ply][1];
             moves[ply][1] = ttable[ttindex].entryMove;
             moves[ply][ll + 1] = tempMove;
+            ttMoveFound = true;
             break;
+        }
+    }
+
+    for (int aa = 2 + ttMoveFound; aa < moves[ply][0] + 1; aa++){
+        for (int bb = aa; (moveStrength(moves[ply][bb - 1]) > moveStrength(moves[ply][bb])) and (bb > 1 + ttMoveFound); bb--){
+            std::swap(moves[ply][bb], moves[ply][bb - 1]);
         }
     }
 

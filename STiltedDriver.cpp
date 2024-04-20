@@ -37,7 +37,7 @@ int main(){
             return 0;
         }
         if (command == "uci"){
-            std::cout << "id name Shatranj Tilted 18\nid author TheTilted096\n";
+            std::cout << "id name Shatranj Tilted 21++\nid author TheTilted096\n";
             std::cout << "option name UCI_Variant type combo default shatranj var shatranj\nuciok\n";
         }
         if (command == "isready"){
@@ -199,19 +199,19 @@ int main(){
             std::cout << "toMove:\t" << toMove << '\n';
         }
         if (command == "testfeature"){
-            /*
-            int lply = 0;
-            fullMoveGen(64 + lply, 1); //generate moves and write them in a separate part of the array
-
-            for (int aa = 2; aa < moves[64 + lply][0]; aa++){
-                for (int bb = aa; moves[64 + lply][bb - 1] < moves[64 + lply][bb]; bb--){
-                    std::swap(moves[64 + lply][bb - 1], moves[64 + lply][bb]);
+            fullMoveGen(0, 0);
+            bool ttMoveFound = false;
+            int ply = 0;
+            for (int aa = 2 + ttMoveFound; aa < moves[ply][0] + 1; aa++){
+                for (int bb = aa; 
+                    (moveStrength(moves[ply][bb - 1]) > moveStrength(moves[ply][bb])) and (bb > 1 + ttMoveFound); bb--){
+                    std::swap(moves[ply][bb], moves[ply][bb - 1]);
                 }
             }
-            for (int i = 0; moves[64 + lply][0]; i++){
-                printMoveAsBinary(moves[64 + lply][i + 1]);
+
+            for (int i = 0; i < moves[ply][0]; i++){
+                std::cout << moveToAlgebraic(moves[ply][i + 1]) << '\n';
             }
-            */
         }
         if (command == "showTTZobrist"){
             std::cout << "Tranposition Table:\n";
