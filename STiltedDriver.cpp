@@ -21,7 +21,7 @@ int main(){
     //std::string move;
     //int64_t dur;
 
-    std::cout << "Shatranj Tilted 21-NMP by TheTilted096\n";
+    std::cout << "Shatranj Tilted 22 by TheTilted096\n";
     std::cout << "(With lots of help from sscg13 - Prolix Dev)\n";
 
     int alpha = -30000; //assume position is bad (you want to increase this)
@@ -37,7 +37,7 @@ int main(){
             return 0;
         }
         if (command == "uci"){
-            std::cout << "id name Shatranj Tilted 21++\nid author TheTilted096\n";
+            std::cout << "id name Shatranj Tilted 22\nid author TheTilted096\n";
             std::cout << "option name UCI_Variant type combo default shatranj var shatranj\nuciok\n";
         }
         if (command == "isready"){

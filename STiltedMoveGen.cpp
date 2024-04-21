@@ -115,8 +115,7 @@ int mps[6][64] =
 void printAsBitboard(uint64_t board){
     for (int i = 0; i < 64; i++){
         std::cout << (board & 1ULL);
-        if ((i & 7) == 7)
-        {
+        if ((i & 7) == 7){
             std::cout << '\n';
         }
         board >>= 1;
@@ -248,23 +247,19 @@ uint64_t emptyBoardMoves(uint8_t type, uint8_t start){ // white = 1, black = 0
             break;
         case 2: // Knight
             temp = 1ULL << start;
-            if (c >= 2)
-            {
+            if (c >= 2){
                 st |= (temp >> 10);
                 st |= (temp << 6);
             }
-            if (c >= 1)
-            {
+            if (c >= 1){
                 st |= (temp >> 17);
                 st |= (temp << 15);
             }
-            if (c <= 5)
-            {
+            if (c <= 5){
                 st |= (temp >> 6);
                 st |= (temp << 10);
             }
-            if (c <= 6)
-            {
+            if (c <= 6){
                 st |= (temp >> 15);
                 st |= (temp << 17);
             }
@@ -296,8 +291,7 @@ void generateHorizontalLookup(){
 
     // suppose i = 0
     for (int j = 1; j < 64; j++){ // for each of the 63 remaining 6 bit combos
-        for (int k = 0; k < __builtin_ctz(j << 1); k++)
-        {                      // for each trailing unset bit and 1 after
+        for (int k = 0; k < __builtin_ctz(j << 1); k++){ // for each trailing unset bit and 1 after
             rMoves.set(k + 1); // set the in the rank move
         }
         tables[0][0][j] = rMoves.to_ullong();
@@ -310,8 +304,7 @@ void generateHorizontalLookup(){
     tables[0][7][0] = 127;
     // suppose i = 7
     for (int j = 1; j < 64; j++){
-        for (int k = 0; k < __builtin_clz(j << 1) - 24; k++)
-        {
+        for (int k = 0; k < __builtin_clz(j << 1) - 24; k++){
             rMoves.set(6 - k);
         }
         tables[0][7][j] = rMoves.to_ullong();
@@ -451,7 +444,7 @@ void generateZobristKeys(){
     zTurnKey = mt();
 }
 
-uint8_t *bitboardToList(uint64_t board){
+uint8_t* bitboardToList(uint64_t board){
     int bits = __builtin_popcountll(board);
     uint8_t *list = new uint8_t[bits + 1];
     list[0] = bits;
@@ -686,8 +679,7 @@ uint8_t determineCapture(uint64_t *opp, uint8_t square){
 void printMoveAsBinary(uint32_t move){
     int spaces[8] = {25, 19, 18, 15, 12, 11, 8, 7};
     uint32_t msb = 1 << 31;
-    for (int i = 0; i < 32; i++)
-    {
+    for (int i = 0; i < 32; i++){
         std::cout << move / msb;
         move <<= 1;
         for (int j : spaces)
