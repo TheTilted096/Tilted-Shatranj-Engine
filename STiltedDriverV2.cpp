@@ -13,7 +13,7 @@ int main(){
     setStartPos();
     beginZobristHash();
 
-    std::string engineID = "Tilted Shatranj 22-Opto";
+    std::string engineID = "Tilted Shatranj 25";
     std::string command, param;
 
     uint64_t oPos[14]; //original pieces

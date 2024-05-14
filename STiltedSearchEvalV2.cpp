@@ -47,6 +47,7 @@ uint32_t bestMove;
 
 int evaluateScratch(){
     scores[1] = 0; scores[0] = 0;
+    eScores[1] = 0; eScores[0] = 0;
 
     uint64_t wtb, btb;
     int f, g;
@@ -59,6 +60,7 @@ int evaluateScratch(){
             g += (f + 1);
 
             scores[1] += mps[i][g];
+            eScores[1] += eps[i][g];
 
             wtb >>= f;
             wtb >>= 1;
@@ -69,14 +71,26 @@ int evaluateScratch(){
         while (btb){
             f = __builtin_ctzll(btb);
             g += (f + 1);
+
             scores[0] += mps[i][56 ^ g];
+            eScores[0] += eps[i][56 ^ g];
 
             btb >>= f;
             btb >>= 1;
         }
     }
 
-    return (scores[toMove] - scores[!toMove]);
+    int mdiff = scores[toMove] - scores[!toMove];
+    int ediff = eScores[toMove] - eScores[!toMove];
+
+    return (mdiff * inGamePhase + ediff * (64 - inGamePhase)) / 64;
+}
+
+int evaluate(){
+    int mdiff = scores[toMove] - scores[!toMove];
+    int ediff = eScores[toMove] - eScores[!toMove];
+
+    return (mdiff * inGamePhase + ediff * (64 - inGamePhase)) / 64;
 }
 
 bool kingBare(){ //returns true if 'toMove' king is bare, false otherwise, and false when both bare.
@@ -88,7 +102,9 @@ bool kingBare(){ //returns true if 'toMove' king is bare, false otherwise, and f
 }
 
 int quiesce(int alpha, int beta, int lply){
-    int failSoft = (scores[toMove] - scores[!toMove]);
+    //int failSoft = (scores[toMove] - scores[!toMove]);
+    int failSoft = evaluate();
+
     int score = -29000;
     if (failSoft >= beta){
         return beta;
@@ -132,6 +148,14 @@ int quiesce(int alpha, int beta, int lply){
     return alpha;    
 }
 
+bool isInteresting(uint32_t& move, bool checked){
+    toMove = !toMove;
+    bool giveCheck = isChecked();
+    toMove = !toMove;
+
+    return ((move >> 12) & 1U) or ((move >> 19) & 1U) or giveCheck or checked;
+}
+
 int alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     int score = -29000;
 
@@ -173,6 +197,17 @@ int alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
         }
     }
 
+    toMove = !toMove;
+    bool inCheck = isChecked();
+    toMove = !toMove;
+
+    //Reverse Futility Pruning
+    int be = evaluate();
+    int margin = 80 * depth;
+    if ((ply > 0) and (abs(beta) < 28000) and (be - margin >= beta) and !inCheck){
+        return be - margin;
+    }
+        
     //Null - Move Pruning
     nmp = ((scores[1] > 1000) and (scores[0] > 1000)) and !nmp;
     //nmp enabled if both sides have material and there was no nmp before
@@ -219,6 +254,10 @@ int alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
 
     uint32_t localBestMove = 0; //for TT updating
     bool isAllNode = true;
+    bool searchPv = true;
+
+    int lmrReduce;
+    bool boringMove;
 
     for (int i = 0; i < numMoves; i++){
         //std::cout << "considering: " << moveToAlgebraic(moves[ply][i]) << '\n';
@@ -231,7 +270,38 @@ int alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
             continue;
         }
 
-        score = -alphabeta(-beta, -alpha, depth - 1, ply + 1, nmp);
+        //score = -alphabeta(-beta, -alpha, depth - 1, ply + 1, nmp);
+
+        if (searchPv){
+            score = -alphabeta(-beta, -alpha, depth - 1, ply + 1, nmp);
+        } else {
+            //score = -alphabeta(-alpha-1, -alpha, depth - 1, ply + 1, nmp); bare PVS
+            /* old LMR code
+            if ((i > 3) and (depth > 2) and !isInteresting(moves[ply][i], inCheck)){
+                score = -alphabeta(-alpha-1, -alpha, depth - 2, ply + 1, nmp);
+            } else {
+                score = -alphabeta(-alpha-1, -alpha, depth - 1, ply + 1, nmp);
+            }
+            if (score > alpha){
+                score = -alphabeta(-beta, -alpha, depth - 1, ply + 1, nmp);
+            }
+            */
+            
+            //lmrReduce = lmrReduces[depth][i];
+            lmrReduce = 1;
+            boringMove = (i > 3) and (depth > 1) and !isInteresting(moves[ply][i], inCheck);
+            lmrReduce *= boringMove;
+            
+            score = -alphabeta(-alpha-1, -alpha, std::max(depth-1-lmrReduce, 0), ply + 1, nmp);
+
+            if (score > alpha && lmrReduce > 0) { 
+                score = -alphabeta(-alpha-1, -alpha, depth-1, ply+1, nmp);
+            }
+            if (score > alpha){
+                score = -alphabeta(-beta, -alpha, depth - 1, ply + 1, nmp);
+            }
+        }
+        
         //std::cout << "score: " << score << '\t' << moveToAlgebraic(moves[ply][i]) << '\n';
         makeMove(moves[ply][i], 0, 1);
 
@@ -248,6 +318,7 @@ int alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
             //PV - Nodes (1)
             localBestMove = moves[ply][i];
             isAllNode = false;
+            searchPv = false;
             alpha = score;
         }
     }
@@ -275,7 +346,7 @@ void moveTimer(int wait){
     timeExpired = true;
 }
 
-void iterativeDeepening(uint32_t thinkTime, int mdepth){
+int iterativeDeepening(uint32_t thinkTime, int mdepth){
     int alpha = -30000;
     int beta = 30000;
 
@@ -317,5 +388,5 @@ void iterativeDeepening(uint32_t thinkTime, int mdepth){
     std::cout << ((dur == 0) ? 0 : ((int) ((float) nodes * 1000 / dur))) << '\n';
 
     std::cout << "bestmove " << moveToAlgebraic(bestMove) << '\n';
+    return cbEval;
 }
-
