@@ -122,8 +122,8 @@ double Game::play(){
             //std::cout << gameClock << '\n';
             break;
         }
-        wcScore = players[engineToMove]->search(0xFFFFFFFF, INT_MAX, mn, false) * (2 * engineToMove - 1);
-        playedMove = players[engineToMove]->getMove();
+        wcScore = players[engineToMove]->search(0xFFFFFFFF, 64, mn, false) * (2 * engineToMove - 1);
+        playedMove = players[engineToMove]->bestMove;
 
         fencmd += moveToAlgebraic(playedMove);
         fencmd += ' ';
@@ -168,7 +168,7 @@ void executeSchedule(Game* lineup, int num, int id, double& res, bool output){
 
 int matchSingle(std::string ofile, int params[], EvalVars evs[], std::string* openingsBook, bool output){
     //params: #games, #num moves, mnodes, lb, ub, #threads, start ID
-    if (params[5] > 8){ std::cout << "Match Denied\n"; return -1; }
+    if (params[5] > std::thread::hardware_concurrency()){ std::cout << "Match Denied\n"; return -1; }
 
     double sum = 0; //sum of all the scores
     int base = params[0] / params[5]; //games per thread
@@ -217,7 +217,7 @@ int matchSingle(std::string ofile, int params[], EvalVars evs[], std::string* op
     return (2 * sum);
 }
 
-int matchPairs(std::string ofile, int params[], EvalVars evs[], bool output){
+double matchPairs(std::string ofile, int params[], EvalVars evs[], bool output){
     std::string* matchBook = Game::makeOpeningsBook(params[0], params[1]);
     std::cout << "### Forward Match Started ###\n";
     int mf = matchSingle(ofile, params, evs, matchBook, output);
@@ -226,5 +226,6 @@ int matchPairs(std::string ofile, int params[], EvalVars evs[], bool output){
     int mb = matchSingle(ofile, params, bevs, matchBook, output);
 
     delete[] matchBook;
+
     return (mf + 2 * params[0] - mb);
 }

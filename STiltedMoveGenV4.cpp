@@ -108,6 +108,22 @@ void Engine::printAllBitboards(){
     std::cout << "toMove: " << toMove << "\n\n";
 }
 
+/*
+Move Representation:
+
+0000 0000 0000 0000 000 0 000000 000000
+
+0-5: start square
+6-11: end square
+
+12: Capture
+13-15: Captured Type
+16-18: Piece Type Moved
+19: Promotion
+20-22: Piece End Type
+23: Color
+*/
+
 int Engine::fullMoveGen(int ply, bool capsOnly){
     uint64_t moveSet;
     uint64_t tempBoard;

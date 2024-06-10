@@ -1,5 +1,5 @@
 current:
-	g++ STiltedDriverV3.cpp -static -o stilted-25-refactor
+	g++ STiltedDriverV3.cpp -static -o stilted-25R-killers-2
 
 spsa:
-	g++ STiltedSPSA.cpp -o sspsa
+	g++ STiltedSPSA.cpp -g -o sspsa

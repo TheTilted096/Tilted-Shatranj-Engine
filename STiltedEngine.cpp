@@ -16,11 +16,11 @@ class Engine{
     int inGamePhase;
     //int lmrReduces[64][128]; double lmrCoef[2];
     TTentry* ttable;
+    uint32_t killers[64][2];
+    int numKillers[64];
 
     int64_t thinkLimit; //think time limit
     std::chrono::_V2::steady_clock::time_point moment;
-    
-    uint32_t bestMove;
     
     uint64_t hyperbolaQuintessence(int&);
 
@@ -38,8 +38,9 @@ class Engine{
     public:
         uint64_t pieces[14];
         bool toMove;
+        uint32_t bestMove;
 
-        int rfpCoef[2] = {38, 58};
+        double rfpCoef[2] = {0.0, 80.0};
         int aspWins[5] = {60, 120, 240, 480, 40000};
 
         int mps[6][64] = 
@@ -175,7 +176,6 @@ class Engine{
         int quiesce(int, int, int);
         int countReps();
         int search(uint32_t, int, uint64_t, bool);
-        uint32_t getMove();
 
         ~Engine();
 };

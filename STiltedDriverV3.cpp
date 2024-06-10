@@ -14,7 +14,7 @@ int main(){
 
     Engine engine;
 
-    std::string versionID = "Tilted Shatranj 25R-rfp38-58";
+    std::string versionID = "Tilted Shatranj 25R-Killers";
     std::string command, param;
 
     std::cout << "0000000000    0000000000    00            0000000000    0000000000    000000  \n";
@@ -64,7 +64,7 @@ int main(){
             std::string ourInc = engine.toMove ? "winc" : "binc";
 
             uint32_t tTime = 0xFFFFFFFF;
-            int tDepth = INT_MAX;
+            int tDepth = 64;
             uint64_t maxNodes = 0x3FFFFFFFULL;
 
             while (!goStream.eof()){

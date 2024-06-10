@@ -6,6 +6,7 @@ so this is a necessary step in maintainability.
 TheTilted096, 5-25-2024
 */
 
+#include <cassert>
 #include <chrono>
 #include <cstdint>
 #include <cmath>
@@ -345,6 +346,6 @@ void TTentry::print(){
 }
 
 struct EvalVars{
-    int* rc;
+    double* rc;
     int* aw;
 };

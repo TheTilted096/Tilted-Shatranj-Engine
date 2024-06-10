@@ -172,6 +172,7 @@ int Engine::countReps(){
 }
 
 int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
+    //assert(ply < 64);
     int score = -29000;
 
     //3-Fold Check
@@ -208,7 +209,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
 
     //Reverse Futility Pruning
     int be = evaluate();
-    int margin = rfpCoef[0] + rfpCoef[1] * depth;
+    double margin = rfpCoef[0] + rfpCoef[1] * depth;
     if ((ply > 0) and (abs(beta) < 28000) and (be - margin >= beta) and !inCheck){
         return be - margin;
     }
@@ -230,43 +231,40 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     }
 
     int numMoves = fullMoveGen(ply, 0);
+
+    for (int ll = 0; ll < numMoves; ll++){ //for each move, score it
+        if (moves[ply][ll] == ttable[ttindex].eMove){ //TT-move has score 0
+            mprior[ply][ll] = 0;
+        } else if ((moves[ply][ll] >> 12U) & 1U){ //captures have value 512 * victim - aggressor
+            mprior[ply][ll] = (((moves[ply][ll] >> 13U) & 7U) << 9U) - ((moves[ply][ll] >> 16U) & 7U);
+        } else if ((moves[ply][ll] == killers[ply][0]) or (moves[ply][ll] == killers[ply][1])){
+            mprior[ply][ll] = 10000; //killers have value 10000
+        } else {
+            mprior[ply][ll] = 20000 - ((moves[ply][ll] >> 16U) & 7U); //non-captures have value 20000
+        }
+    }
     
-    bool ttMoveFound = false;
-    //Find TT-Move
-    for (int ll = 0; ll < numMoves; ll++){
-        if (moves[ply][ll] == ttable[ttindex].eMove){
-            std::swap(moves[ply][ll], moves[ply][0]);
-            ttMoveFound = true;
-            break;
+    for (int ii = 1; ii < numMoves; ii++){
+        for (int jj = ii; (jj > 0) and (mprior[ply][jj - 1] > mprior[ply][jj]); jj--){
+            std::swap(moves[ply][jj], moves[ply][jj - 1]);
+            std::swap(mprior[ply][jj], mprior[ply][jj - 1]);
         }
     }
 
-    //MVV-LVA
-    for (int ii = ttMoveFound; ii < numMoves; ii++){
-        mprior[ply][ii] = ((moves[ply][ii] >> 16) & 7) * (-1); //less valuable = better (-a)
-        if ((moves[ply][ii] >> 12) & 1){ //if capturing
-            mprior[ply][ii] += (10 * ((moves[ply][ii] >> 13) & 7)); //10v
-        } else {
-            mprior[ply][ii] += 100;
-        }
+    for (int kk = ply + 1; kk < 64; kk++){
+        numKillers[kk] = 0;
     }
-    for (int aa = 1 + ttMoveFound; aa < numMoves; aa++){
-        for (int bb = aa; (mprior[ply][bb - 1] > mprior[ply][bb]) and (bb > ttMoveFound); bb--){
-            std::swap(moves[ply][bb], moves[ply][bb - 1]);
-            std::swap(mprior[ply][bb], mprior[ply][bb - 1]);
-        }
-    }
-    
 
     uint32_t localBestMove = 0; //for TT updating
     bool isAllNode = true;
     bool searchPv = true;
 
     int lmrReduce;
-    bool boringMove;
+    bool boringMove, quietMove;
 
     for (int i = 0; i < numMoves; i++){
-        //std::cout << "considering: " << moveToAlgebraic(moves[ply][i]) << '\n';
+        //std::cout << "considering: " << moveToAlgebraic(moves[ply][i]) << '\t' << mprior[ply][i] << '\n';
+        //printMoveAsBinary(moves[ply][i]);
         makeMove(moves[ply][i], 1, 1); 
         endHandle();
 
@@ -278,6 +276,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
 
         //score = -alphabeta(-beta, -alpha, depth - 1, ply + 1, nmp);
 
+        //quietMove = !isInteresting(moves[ply][i], inCheck);
         // PVS, LMR
         if (searchPv){
             score = -alphabeta(-beta, -alpha, depth - 1, ply + 1, nmp);
@@ -305,6 +304,18 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
         if (score >= beta){ //beta cutoff, cut node (2)
             ttable[ttindex].update(score, 2, depth, moves[ply][i], thm);
             //std::cout << "cut " << moveToAlgebraic(moves[ply][i]) << '\n';
+            
+            //Killer Move Updating
+            if ((moves[ply][i] & 4096U) ^ (4096U) and (ply > 0)){
+                if (numKillers[ply] = 2){
+                    std::swap(killers[ply][0], killers[ply][1]);
+                    killers[ply][1] = moves[ply][i];
+                } else {
+                    killers[ply][numKillers[ply]] = moves[ply][i];
+                    numKillers[ply]++;
+                }
+            }
+
             return beta; // fail-hard beta cutoff
         }
         if (score > alpha){
@@ -377,7 +388,7 @@ int Engine::search(uint32_t thinkTime, int mdepth, uint64_t maxNodes, bool outpu
                 beta = prevEval + aspWins[aspb];
                 
                 cbEval = alphabeta(alpha, beta, i, 0, false); //ensure nmp = 1 when ply = 0
-                //sstd::cout << '[' << alpha << " , " << beta << "]\n";
+                //std::cout << '[' << alpha << " , " << beta << "]\n";
 
                 if (cbEval <= alpha){
                     aspa++;
@@ -413,8 +424,4 @@ int Engine::search(uint32_t thinkTime, int mdepth, uint64_t maxNodes, bool outpu
     mnodes=~0ULL;
 
     return cbEval;
-}
-
-uint32_t Engine::getMove(){
-    return bestMove;
 }

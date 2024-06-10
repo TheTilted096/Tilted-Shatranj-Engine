@@ -23,9 +23,9 @@ int main(int argc, char** argv){
     std::cout << "outputFile: " << argv[5] << '\n';
 
     int delta[2];
-    int theta[2] = {0, 80};
-    int thetaPlus[2];
-    int thetaMinus[2];
+    double theta[2] = {0.0, 80.0};
+    double thetaPlus[2];
+    double thetaMinus[2];
     EvalVars vars[] = {{thetaPlus, nullptr}, {thetaMinus, nullptr}};
 
     std::string output = argv[5];
@@ -37,11 +37,12 @@ int main(int argc, char** argv){
     for (int k = 0; k < numPasses; k++){
         std::cout << "\n=== PASS " << k + 1 << " ===\n";
 
-        int ak = std::floor(513.0 * pow(k + 44.0, -0.602));
-        int ck = std::floor(29.6 * pow(k + 4.6, -0.101));
+        double ak = 200.0 * pow(k + 4.0, -0.808);
+        double ck = 25.0 * pow(k + 13.6, -0.101);
         
         std::cout << "ak: " << ak << '\n';
         std::cout << "ck: " << ck << '\n';
+        std::cout << "adjustValue: " << ak / ck << '\n';
         std::cout << "delta: ";
 
         for (int pp = 0; pp < 2; pp++){
@@ -52,17 +53,16 @@ int main(int argc, char** argv){
         }
 
         std::cout << '\n';
-        int mar = 2 * testParams[0] - matchPairs(output, testParams, vars, false);
+        double mar = matchPairs(output, testParams, vars, false) / (4.0 * testParams[0]);
         std::cout << "ThetaPlus Score = " << mar << '\n';
+        double mul = (mar - 0.5) * 80.0;
+        std::cout << "Multiplier: " << mul << '\n';
         
-
         for (int pp = 0; pp < 2; pp++){
-            theta[pp] += mar * delta[pp] * ak / ck;
+            theta[pp] += mul * delta[pp] * ak / ck;
             std::cout << theta[pp] << "     ";
         }        
     }
-
-
 
     return 0;
 }
