@@ -25,6 +25,15 @@ void Engine::eraseTransposeTable(){
     }
 }
 
+void Engine::eraseHistoryTable(){
+    for (int i = 0; i < 6; i++){
+        for (int j = 0; j < 64; j++){
+            historyTable[0][i][j] = 0;
+            historyTable[1][i][j] = 0;
+        }
+    }
+}
+
 int Engine::halfMoveCount(){
     return chm[thm];
 }
@@ -240,7 +249,8 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
         } else if ((moves[ply][ll] == killers[ply][0]) or (moves[ply][ll] == killers[ply][1])){
             mprior[ply][ll] = 10000; //killers have value 10000
         } else {
-            mprior[ply][ll] = 20000 - ((moves[ply][ll] >> 16U) & 7U); //non-captures have value 20000
+            mprior[ply][ll] = 100000000 - ((moves[ply][ll] >> 16U) & 7U) -
+                 historyTable[toMove][(moves[ply][ll] >> 16U) & 7U][(moves[ply][ll] >> 6U) & 63U]; //non-captures have value 20000
         }
     }
     
@@ -283,9 +293,8 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
         } else {
             //score = -alphabeta(-alpha-1, -alpha, depth - 1, ply + 1, nmp); bare PVS
             
-            //lmrReduce = lmrReduces[depth][i];
-            lmrReduce = 1;
-            boringMove = (i > 3) and (depth > 1) and !isInteresting(moves[ply][i], inCheck);
+            lmrReduce = lmrReduces[depth][i];
+            boringMove = (depth > 1) and !isInteresting(moves[ply][i], inCheck);
             lmrReduce *= boringMove;
             
             score = -alphabeta(-alpha-1, -alpha, std::max(depth-1-lmrReduce, 0), ply + 1, nmp);
@@ -305,7 +314,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
             ttable[ttindex].update(score, 2, depth, moves[ply][i], thm);
             //std::cout << "cut " << moveToAlgebraic(moves[ply][i]) << '\n';
             
-            //Killer Move Updating
+            //Killer Move Updating and History Updating
             if ((moves[ply][i] & 4096U) ^ (4096U) and (ply > 0)){
                 if (numKillers[ply] = 2){
                     std::swap(killers[ply][0], killers[ply][1]);
@@ -314,7 +323,9 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
                     killers[ply][numKillers[ply]] = moves[ply][i];
                     numKillers[ply]++;
                 }
-            }
+
+                historyTable[toMove][(moves[ply][i] >> 16U) & 7U][(moves[ply][i] >> 6U) & 63U] += (depth * depth);
+            }            
 
             return beta; // fail-hard beta cutoff
         }
@@ -362,6 +373,7 @@ int Engine::search(uint32_t thinkTime, int mdepth, uint64_t maxNodes, bool outpu
     int cbEval = 0; //eval of latest complete search
     uint64_t prevNodes; //nodes consumed in total
 
+    eraseHistoryTable();
     evaluateScratch();
 
     int prevEval;
@@ -422,6 +434,14 @@ int Engine::search(uint32_t thinkTime, int mdepth, uint64_t maxNodes, bool outpu
     nodes = 0;
     thinkLimit = 0xFFFFFFFF;
     mnodes=~0ULL;
+
+    /*
+    int extraMoves = fullMoveGen(0, 0);
+    for (int aaa = 0; aaa < extraMoves; aaa++){
+        std::cout << moveToAlgebraic(moves[0][aaa])<< ":    ";
+        std::cout << historyTable[toMove][(moves[0][aaa] >> 16U) & 7U][(moves[0][aaa] >> 6U) & 63U] << '\n';
+    }
+    */
 
     return cbEval;
 }

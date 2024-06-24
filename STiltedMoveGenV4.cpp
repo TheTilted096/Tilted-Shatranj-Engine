@@ -11,6 +11,9 @@ Engine::Engine(){
         for (int j = 0; j < 64; j++) {
             mps[i][j] += matVals[i];
             eps[i][j] += matVals[i];
+
+            historyTable[0][i][j] = 0;
+            historyTable[1][i][j] = 0;
         }
     }
     setStartPos();
@@ -24,6 +27,12 @@ Engine::Engine(){
     ttable = new TTentry[0x100000];
     for (int i = 0; i < 0x100000; i++){
         ttable[i] = TTentry(zhist);
+    }
+
+    for (int i = 1; i < 64; i++){
+        for (int j = 1; j < 128; j++){
+            lmrReduces[i][j] = std::max(0.0, floor(lmrCoef[0] + lmrCoef[1] * log(i) * log(j)));
+        }
     }
 }
 

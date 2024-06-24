@@ -40,7 +40,7 @@ Game::Game(){
     gameClock = 0;
     gameResult = -1;
 
-    positions = new std::string[1024];
+    positions = new std::string[2048];
 
     mn = 0;
 }
@@ -52,7 +52,7 @@ Game::Game(uint64_t m, std::string op){
     gameClock = 0;
     gameResult = -1;
 
-    positions = new std::string[1024];
+    positions = new std::string[2048];
 
     mn = m;
 }
@@ -99,6 +99,10 @@ double Game::adjudicate(int wcs, bool ep){
         return 0.5;
     }
 
+    if (gameClock > 2046){
+        return 0.5;
+    }
+
     return -1;    
 }
 
@@ -116,13 +120,14 @@ double Game::play(){
 
     while (true){
         players[engineToMove]->readFen(fencmd);
+        assert(gameClock < 2048);
         positions[gameClock] = players[engineToMove]->makeFen();
         gameResult = adjudicate(wcScore, engineToMove);
         if (gameResult != -1){
             //std::cout << gameClock << '\n';
             break;
         }
-        wcScore = players[engineToMove]->search(0xFFFFFFFF, 64, mn, false) * (2 * engineToMove - 1);
+        wcScore = players[engineToMove]->search(0xFFFFFFFF, 63, mn, false) * (2 * engineToMove - 1);
         playedMove = players[engineToMove]->bestMove;
 
         fencmd += moveToAlgebraic(playedMove);
@@ -168,7 +173,7 @@ void executeSchedule(Game* lineup, int num, int id, double& res, bool output){
 
 int matchSingle(std::string ofile, int params[], EvalVars evs[], std::string* openingsBook, bool output){
     //params: #games, #num moves, mnodes, lb, ub, #threads, start ID
-    if (params[5] > std::thread::hardware_concurrency()){ std::cout << "Match Denied\n"; return -1; }
+    if (params[5] > 12){ std::cout << "Match Denied\n"; return -1; }
 
     double sum = 0; //sum of all the scores
     int base = params[0] / params[5]; //games per thread

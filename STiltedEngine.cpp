@@ -14,10 +14,11 @@ class Engine{
     int thm; int chm[1024];
     uint64_t zhist[1024];
     int inGamePhase;
-    //int lmrReduces[64][128]; double lmrCoef[2];
     TTentry* ttable;
     uint32_t killers[64][2];
     int numKillers[64];
+
+    int historyTable[2][6][64];
 
     int64_t thinkLimit; //think time limit
     std::chrono::_V2::steady_clock::time_point moment;
@@ -33,6 +34,8 @@ class Engine{
     int evaluate();
     bool kingBare();
     bool isInteresting(uint32_t&, bool);
+    void eraseTransposeTable();
+    void eraseHistoryTable();
     int alphabeta(int, int, int, int, bool);
 
     public:
@@ -42,6 +45,9 @@ class Engine{
 
         double rfpCoef[2] = {0.0, 80.0};
         int aspWins[5] = {60, 120, 240, 480, 40000};
+
+        int lmrReduces[64][128]; 
+        double lmrCoef[2] = {-0.1, 0.4};
 
         int mps[6][64] = 
         {{-38, -55, -15, -5, -5, -15, -25, -35, 
@@ -167,7 +173,6 @@ class Engine{
         std::string makeRandMoves(int);
 
         void beginZobristHash();
-        void eraseTransposeTable();
         int halfMoveCount();
         int evaluateScratch();
         void newGame();
