@@ -14,7 +14,7 @@ int main(){
 
     Engine engine;
 
-    std::string versionID = "Tilted Shatranj 25RL";
+    std::string versionID = "Tilted Shatranj 26-zfix";
     std::string command, param;
 
     std::cout << "0000000000    0000000000    00            0000000000    0000000000    000000  \n";
@@ -60,8 +60,8 @@ int main(){
         }
         if (command.substr(0, 2) == "go"){
             std::stringstream goStream(command.substr(3));
-            std::string ourTime = engine.toMove ? "wtime" : "btime";
-            std::string ourInc = engine.toMove ? "winc" : "binc";
+            std::string ourTime = engine.getSide() ? "wtime" : "btime";
+            std::string ourInc = engine.getSide() ? "winc" : "binc";
 
             uint32_t tTime = 0xFFFFFFFF;
             int tDepth = 63;

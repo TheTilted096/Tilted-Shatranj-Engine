@@ -448,6 +448,9 @@ void Engine::sendMove(std::string expr){
     }
 }
 
+uint32_t Engine::getMove(){ return bestMove; }
+bool Engine::getSide(){ return toMove; }
+
 std::string Engine::makeRandMoves(int toMake){
     int ni;
     for (int i = 0; i < toMake; i++){

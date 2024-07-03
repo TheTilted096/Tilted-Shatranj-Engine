@@ -6,6 +6,10 @@ TheTilted096, 5-25-2024
 #include "STiltedBase.cpp"
 
 class Engine{
+    uint64_t pieces[14];
+    bool toMove;
+    uint32_t bestMove;
+
     uint32_t moves[96][128];
     int mprior[96][128];
     uint64_t nodes, mnodes;
@@ -39,10 +43,6 @@ class Engine{
     int alphabeta(int, int, int, int, bool);
 
     public:
-        uint64_t pieces[14];
-        bool toMove;
-        uint32_t bestMove;
-
         double rfpCoef[2] = {0.0, 80.0};
         int aspWins[5] = {60, 120, 240, 480, 40000};
 
@@ -169,6 +169,8 @@ class Engine{
         void readFen(std::string);
         std::string makeFen();
         void sendMove(std::string);
+        uint32_t getMove();
+        bool getSide();
 
         std::string makeRandMoves(int);
 

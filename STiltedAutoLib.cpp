@@ -128,7 +128,7 @@ double Game::play(){
             break;
         }
         wcScore = players[engineToMove]->search(0xFFFFFFFF, 63, mn, false) * (2 * engineToMove - 1);
-        playedMove = players[engineToMove]->bestMove;
+        playedMove = players[engineToMove]->getMove();
 
         fencmd += moveToAlgebraic(playedMove);
         fencmd += ' ';

@@ -347,5 +347,5 @@ void TTentry::print(){
 
 struct EvalVars{
     double* rc;
-    int* aw;
+    double* aw;
 };
