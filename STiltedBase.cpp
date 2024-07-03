@@ -341,7 +341,7 @@ void TTentry::update(int& sc, int nt, int& d, uint32_t dm, int thm){
 
 void TTentry::print(){
     std::cout << "Index: " << (eHash & 0xFFFFF) << "     Score: " << eScore
-        << "\tdepthAt: " << eDepth << "     nodeType: " << enType << "     debugMove: " 
+        << "\tdepthAt: " << eDepth << "     nodeType: " << enType << "     Move: " 
             << moveToAlgebraic(eMove) << '\n';
 }
 

@@ -168,6 +168,7 @@ int Engine::quiesce(int alpha, int beta, int lply){
 }
 
 int Engine::countReps(){
+    /*
     int rind = thm;
     int reps = 0;
 
@@ -178,6 +179,17 @@ int Engine::countReps(){
         rind -= 2;
     }
     return reps;
+    */
+    
+    int rind = thm;
+    int reps = 1;
+    do {
+        rind -= 2;
+        if (zhist[thm] == zhist[rind]){ reps++; }
+    } while (chm[rind] and (rind >= 0));
+
+    return reps;
+    
 }
 
 int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){

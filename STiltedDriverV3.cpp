@@ -100,6 +100,14 @@ int main(){
 
             std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms\n";
         }
+    
+        if (command == "showTTZobrist"){
+            engine.showZobrist();
+        }
+        if (command == "printpieces"){
+            engine.printAllBitboards();
+        }
+    
     }
 
     return 0;

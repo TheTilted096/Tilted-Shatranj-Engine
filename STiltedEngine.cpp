@@ -175,6 +175,7 @@ class Engine{
         std::string makeRandMoves(int);
 
         void beginZobristHash();
+        void showZobrist();
         int halfMoveCount();
         int evaluateScratch();
         void newGame();

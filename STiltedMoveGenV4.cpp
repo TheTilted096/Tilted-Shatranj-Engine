@@ -91,6 +91,21 @@ void Engine::beginZobristHash(){
     }
 }
 
+void Engine::showZobrist(){
+    std::cout << "Tranposition Table:\n";
+    for (int k = 1; k < 15; k++){
+        for (int i = 0; i < 0xFFFFF; i++){
+            if (ttable[i].eDepth == k){
+                ttable[i].print();
+            }
+        }
+    }
+    std::cout << "\nZobrist History + Last 20 Bits\n";
+    for (int j = 0; j < thm + 1; j++){
+        std::cout << "ZH " << j << ": " << zhist[j] << "\tIndex: " << (zhist[j] & 0xFFFFF) << '\n';
+    }
+}
+
 void Engine::printAllBitboards(){
     std::cout << "\nWhite's Pieces\n";
     for (int i = 0; i < 8; i++) {
@@ -114,7 +129,8 @@ void Engine::printAllBitboards(){
         std::cout << '\n';
     }
 
-    std::cout << "toMove: " << toMove << "\n\n";
+    std::cout << "toMove: " << toMove << '\n';
+    std::cout << "Repetitions: " << countReps() << "\n\n";
 }
 
 /*
