@@ -43,8 +43,8 @@ class Engine{
     int alphabeta(int, int, int, int, bool);
 
     public:
-        double rfpCoef[2] = {0.0, 80.0};
-        int aspWins[5] = {60, 120, 240, 480, 40000};
+        double rfpCoef[2] = {3.0, 67.0};
+        double aspWins[5] = {73.5, 120.0, 240.0, 480.0, 40000.0};
 
         int lmrReduces[64][128]; 
         double lmrCoef[2] = {-0.1, 0.4};
