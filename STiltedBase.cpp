@@ -246,7 +246,7 @@ void initializeTables(){
     genHorizontalLookup();
 
     //Zobrist Hash Initialize
-    std::mt19937_64 mt{0xDE92F5AD5A5EAD57};
+    std::mt19937_64 mt{0xCDCA90411B794FE1};
     for (int i = 0; i < 2; i++) {
         for (int j = 0; j < 6; j++) {
             for (int k = 0; k < 64; k++) {

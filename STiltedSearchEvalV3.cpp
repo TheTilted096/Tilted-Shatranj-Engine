@@ -34,6 +34,139 @@ void Engine::eraseHistoryTable(){
     }
 }
 
+void Engine::beginAttackTable(){
+    int f, g;
+    uint64_t tb;
+
+    for (int i = 0; i < 6; i++){
+        tb = pieces[i];
+        atktbl[i] = 0ULL;
+        g = -1;
+        while (tb){
+            f = __builtin_ctzll(tb);
+            g += (f + 1);
+            if (i == 5){
+                atktbl[i] |=  plt[0][g];
+            } else if (i == 1){
+                atktbl[i] |= hyperbolaQuintessence(g);
+                atktbl[i] |= ((uint64_t)hlt[g & 7][((((RANK0 << ((g & 56))) & (pieces[6] | pieces[13])) >> (g & 56)) >> 1) & 63]) << (g & 56);
+            } else {
+                atktbl[i] |=  llt[i][g];
+            }
+            tb >>= f;
+            tb >>= 1;
+        }
+
+        tb = pieces[i + 7];
+        atktbl[i + 6] = 0ULL;
+        g = -1;
+        while (tb){
+            f = __builtin_ctzll(tb);
+            g += (f + 1);
+            if (i == 5){
+                atktbl[i + 6] |=  plt[1][g];
+            } else if (i == 1){
+                atktbl[i + 6] |= hyperbolaQuintessence(g);
+                atktbl[i + 6] |= ((uint64_t)hlt[g & 7][((((RANK0 << ((g & 56))) & (pieces[6] | pieces[13])) >> (g & 56)) >> 1) & 63]) << (g & 56);
+            } else {
+                atktbl[i + 6] |=  llt[i][g];
+            }
+            tb >>= f;
+            tb >>= 1;
+        }
+    }
+}
+
+void Engine::calculateMobility(){
+    mobil[0] = 0; emobil[0] = 0;
+    mobil[1] = 0; emobil[1] = 0;
+
+    beginAttackTable();
+
+    uint64_t tb, asetw = 0ULL, asetb = 0ULL;
+    int f, g;
+    for (int i = 4; i > 1; i--){
+        asetw |= atktbl[i + 7];
+        tb = pieces[i];
+        g = -1;
+        while (tb){
+            f = __builtin_ctzll(tb);
+            g += (f + 1);
+            mobil[0] += mobVals[__builtin_popcountll(llt[i][g] & (~pieces[6]) & ~asetw) + mIndx[i]];
+            emobil[0] += mobValsE[__builtin_popcountll(llt[i][g] & (~pieces[6]) & ~asetw) + mIndx[i]];
+            tb >>= f;
+            tb >>= 1;
+        }
+
+        asetb |= atktbl[i + 1];
+        tb = pieces[i + 7];
+        g = -1;
+        while (tb){
+            f = __builtin_ctzll(tb);
+            g += (f + 1);
+            mobil[1] += mobVals[__builtin_popcountll(llt[i][g] & (~pieces[13]) & ~asetb) + mIndx[i]];
+            emobil[1] += mobValsE[__builtin_popcountll(llt[i][g] & (~pieces[13]) & ~asetb) + mIndx[i]];
+            tb >>= f;
+            tb >>= 1;
+        }
+    }
+
+    asetw |= atktbl[8];
+    tb = pieces[1];
+    g = -1;
+    while (tb){
+        f = __builtin_ctzll(tb);
+        g += (f + 1);
+        int rookexp = __builtin_popcountll(((hyperbolaQuintessence(g)) | (((uint64_t)hlt[g & 7][((((RANK0 << ((g & 56))) & (pieces[6] | pieces[13])) >> (g & 56)) >> 1) & 63]) << (g & 56))) 
+            & (~pieces[6]) & ~asetw) + mIndx[1];
+        mobil[0] += mobVals[rookexp];
+        emobil[0] += mobValsE[rookexp];
+        tb >>= f;
+        tb >>= 1;
+    }
+
+    asetb |= atktbl[2];
+    tb = pieces[8];
+    g = -1;
+    while (tb){
+        f = __builtin_ctzll(tb);
+        g += (f + 1);
+        int rookexp = __builtin_popcountll(((hyperbolaQuintessence(g)) | (((uint64_t)hlt[g & 7][((((RANK0 << ((g & 56))) & (pieces[6] | pieces[13])) >> (g & 56)) >> 1) & 63]) << (g & 56))) 
+            & (~pieces[13]) & ~asetb) + mIndx[1];
+        mobil[1] += mobVals[rookexp];
+        emobil[1] += mobValsE[rookexp];
+        tb >>= f;
+        tb >>= 1;
+    }
+
+    asetw |= atktbl[7]; asetw |= atktbl[6];
+    tb = pieces[0];
+    g = -1;
+    while (tb){
+        f = __builtin_ctzll(tb);
+        g += (f + 1);
+        mobil[0] += mobVals[__builtin_popcountll(llt[0][g] & (~pieces[6]) & ~asetw) + mIndx[0]];
+        emobil[0] += mobValsE[__builtin_popcountll(llt[0][g] & (~pieces[6]) & ~asetw) + mIndx[0]];
+        tb >>= f;
+        tb >>= 1;
+    }
+
+    asetb |= atktbl[1]; asetw |= atktbl[0];
+    tb = pieces[7];
+    while (tb){
+        f = __builtin_ctzll(tb);
+        g += (f + 1);
+        mobil[1] += mobVals[__builtin_popcountll(llt[0][g] & (~pieces[13]) & ~asetb) + mIndx[0]];
+        emobil[1] += mobValsE[__builtin_popcountll(llt[0][g] & (~pieces[13]) & ~asetb) + mIndx[0]];
+        tb >>= f;
+        tb >>= 1;
+    }
+
+    //std::cout << mobil[0] << ", " << emobil[0] << '\n';
+    //std::cout << mobil[1] << ", " << emobil[1] << '\n';
+
+}
+
 int Engine::halfMoveCount(){
     return chm[thm];
 }
@@ -91,15 +224,23 @@ int Engine::evaluateScratch(){
         }
     }
 
-    int mdiff = scores[toMove] - scores[!toMove];
-    int ediff = eScores[toMove] - eScores[!toMove];
+    calculateMobility();
+
+    int mdiff = scores[toMove] + mobil[toMove] - scores[!toMove] - mobil[!toMove];
+    int ediff = eScores[toMove] + emobil[toMove] - eScores[!toMove] - emobil[!toMove];
+    //int mdiff = scores[toMove] - scores[!toMove];
+    //int ediff = eScores[toMove] - eScores[!toMove];
 
     return (mdiff * inGamePhase + ediff * (64 - inGamePhase)) / 64;
 }
 
 int Engine::evaluate(){
-    int mdiff = scores[toMove] - scores[!toMove];
-    int ediff = eScores[toMove] - eScores[!toMove];
+    calculateMobility();
+    int mdiff = scores[toMove] + mobil[toMove] - scores[!toMove] - mobil[!toMove];
+    int ediff = eScores[toMove] + emobil[toMove] - eScores[!toMove] - emobil[!toMove];
+
+    //int mdiff = scores[toMove] - scores[!toMove];
+    //int ediff = eScores[toMove] - eScores[!toMove];
 
     return (mdiff * inGamePhase + ediff * (64 - inGamePhase)) / 64;
 }
@@ -134,16 +275,19 @@ int Engine::quiesce(int alpha, int beta, int lply){
 
     int nc = fullMoveGen(64 + lply, 1);
 
-    //MVVLVA
-    for (int ii = 0; ii < nc; ii++){ //generate move priorities for all
-        mprior[64 + lply][ii] = ((moves[64 + lply][ii] >> 16) & 7) * (-1); //less valuable = better (-a)
-        mprior[64 + lply][ii] += (10 * ((moves[64 + lply][ii] >> 13) & 7)); //10v
-    }
-    for (int aa = 1; aa < nc; aa++){ //insertion sort
-        for (int bb = aa; (bb > 0) and (mprior[64 + lply][bb - 1] > mprior[64 + lply][bb]); bb--){
-            std::swap(moves[64 + lply][bb - 1], moves[64 + lply][bb]);
-            std::swap(mprior[64 + lply][bb - 1], mprior[64 + lply][bb]);
+    uint32_t keyVal, keyMove;
+    int ii, jj;
+    for (ii = 1; ii < nc; ii++){
+        keyVal = mprior[64 + lply][ii];
+        keyMove = moves[64 + lply][ii];
+        jj = ii - 1;
+        while (jj >= 0 and mprior[64 + lply][jj] > keyVal){
+            mprior[64 + lply][jj + 1] = mprior[64 + lply][jj];
+            moves[64 + lply][jj + 1] = moves[64 + lply][jj];
+            jj--;
         }
+        mprior[64 + lply][jj + 1] = keyVal;
+        moves[64 + lply][jj + 1] = keyMove;
     }
 
     for (int i = 0; i < nc; i++){
@@ -252,29 +396,32 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     }
 
     int numMoves = fullMoveGen(ply, 0);
-
-    for (int ll = 0; ll < numMoves; ll++){ //for each move, score it
-        if (moves[ply][ll] == ttable[ttindex].eMove){ //TT-move has score 0
-            mprior[ply][ll] = 0;
-        } else if ((moves[ply][ll] >> 12U) & 1U){ //captures have value 512 * victim - aggressor
-            mprior[ply][ll] = (((moves[ply][ll] >> 13U) & 7U) << 9U) - ((moves[ply][ll] >> 16U) & 7U);
-        } else if ((moves[ply][ll] == killers[ply][0]) or (moves[ply][ll] == killers[ply][1])){
-            mprior[ply][ll] = 10000; //killers have value 10000
-        } else {
-            mprior[ply][ll] = 100000000 - ((moves[ply][ll] >> 16U) & 7U) -
-                 historyTable[toMove][(moves[ply][ll] >> 16U) & 7U][(moves[ply][ll] >> 6U) & 63U]; //non-captures have value 20000
+    
+    // Move Ordering Version 2
+    bool ttmf = false;
+    for (int a = 0; a < numMoves; a++){
+        if (!ttmf and (moves[ply][a] == ttable[ttindex].eMove)){
+            mprior[ply][a] = 0;
+            continue;
+        }
+        if ((moves[ply][a] == killers[ply][0]) or (moves[ply][a] == killers[ply][1])){
+            mprior[ply][a] = 10000;
         }
     }
     
-    for (int ii = 1; ii < numMoves; ii++){
-        for (int jj = ii; (jj > 0) and (mprior[ply][jj - 1] > mprior[ply][jj]); jj--){
-            std::swap(moves[ply][jj], moves[ply][jj - 1]);
-            std::swap(mprior[ply][jj], mprior[ply][jj - 1]);
+    uint32_t keyVal, keyMove;
+    int ii, jj;
+    for (ii = 1; ii < numMoves; ii++){
+        keyVal = mprior[ply][ii];
+        keyMove = moves[ply][ii];
+        jj = ii - 1;
+        while (jj >= 0 and mprior[ply][jj] > keyVal){
+            mprior[ply][jj + 1] = mprior[ply][jj];
+            moves[ply][jj + 1] = moves[ply][jj];
+            jj--;
         }
-    }
-
-    for (int kk = ply + 1; kk < 64; kk++){
-        numKillers[kk] = 0;
+        mprior[ply][jj + 1] = keyVal;
+        moves[ply][jj + 1] = keyMove;
     }
 
     uint32_t localBestMove = 0; //for TT updating
@@ -326,19 +473,14 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
             ttable[ttindex].update(score, 2, depth, moves[ply][i], thm);
             //std::cout << "cut " << moveToAlgebraic(moves[ply][i]) << '\n';
             
-            //Killer Move Updating and History Updating
+            //Killer Move Updating and History Updating      
             if ((moves[ply][i] & 4096U) ^ (4096U) and (ply > 0)){
-                if (numKillers[ply] = 2){
-                    std::swap(killers[ply][0], killers[ply][1]);
-                    killers[ply][1] = moves[ply][i];
-                } else {
-                    killers[ply][numKillers[ply]] = moves[ply][i];
-                    numKillers[ply]++;
-                }
+                killers[ply][1] = moves[ply][i];
+                std::swap(killers[ply][0], killers[ply][1]);
 
                 historyTable[toMove][(moves[ply][i] >> 16U) & 7U][(moves[ply][i] >> 6U) & 63U] += (depth * depth);
-            }            
-
+            }          
+            
             return beta; // fail-hard beta cutoff
         }
         if (score > alpha){

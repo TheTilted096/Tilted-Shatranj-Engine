@@ -17,8 +17,7 @@ Engine::Engine(){
         }
     }
     setStartPos();
-    beginZobristHash();
-    mnodes= ~0ULL;
+    mnodes = ~0ULL;
     nodes = 0;
     
     thinkLimit = 0xFFFFFFFF;
@@ -154,8 +153,6 @@ int Engine::fullMoveGen(int ply, bool capsOnly){
     uint64_t tempBoard;
     uint64_t occupied = pieces[6] | pieces[13];
 
-    int numPieces;  // number of piees in bitboard
-    int numMoves;   // moves in moveset
     int f, g;       // piece squares
     int p, q;       // destination squares
     int totalNumMoves = 0;
@@ -178,18 +175,25 @@ int Engine::fullMoveGen(int ply, bool capsOnly){
             moves[ply][totalNumMoves] = g;          // start
             moves[ply][totalNumMoves] |= (q << 6);  // end
 
+            //mprior[ply][totalNumMoves] = 195;
+
             if ((pieces[7 * (!toMove) + 6] & (1ULL << q))) {         // if is a capture
-                for (int cc = 0; cc < 6; cc++) {                     // find the captured piece, if any by scanning through opp bbs
+                for (int cc = 1; cc < 6; cc++) {                     // find the captured piece, if any by scanning through opp bbs
                     if (pieces[7 * (!toMove) + cc] & (1ULL << q)) {  // if enemy bitboard intersect with dest square
                         moves[ply][totalNumMoves] |= (4096U);        // capture bit set
                         moves[ply][totalNumMoves] |= (cc << 13);     // set bits accordingly and exit loop
+
+                        mprior[ply][totalNumMoves] = (cc << 9) - 5;
+
                         break;
                     }
                 }
+            } else {
+                mprior[ply][totalNumMoves] = std::max(11000, 100000 - 5 - historyTable[toMove][5][q]);
             }
 
             moves[ply][totalNumMoves] |= (5U << 16);
-            if ((1ULL << q) & ((toMove) ? RANK0 : RANK7)) {  // if promoting
+            if ((1ULL << q) & (RANK0 | RANK7)) {  // if promoting
                 moves[ply][totalNumMoves] |= (7U << 19);
                 // std::cout << "promotion\n";
             } else {
@@ -227,14 +231,21 @@ int Engine::fullMoveGen(int ply, bool capsOnly){
                 moves[ply][totalNumMoves] = g;          // start
                 moves[ply][totalNumMoves] |= (q << 6);  // end
 
+                //mprior[ply][totalNumMoves] = 200 - ll;
+
                 if ((pieces[7 * (!toMove) + 6] & (1ULL << q))) {         // if is a capture
-                    for (int cc = 0; cc < 6; cc++) {                     // find the captured piece, if any by scanning through opp bbs
+                    for (int cc = 1; cc < 6; cc++) {                     // find the captured piece, if any by scanning through opp bbs
                         if (pieces[7 * (!toMove) + cc] & (1ULL << q)) {  // if enemy bitboard intersect with dest square
                             moves[ply][totalNumMoves] |= (4096U);        // capture bit set
                             moves[ply][totalNumMoves] |= (cc << 13);     // set bits accordingly and exit loop
+
+                            mprior[ply][totalNumMoves] = (cc << 9) - ll;
+
                             break;
                         }
                     }
+                } else {
+                    mprior[ply][totalNumMoves] = std::max(11000, 100000 - ll - historyTable[toMove][ll][q]);
                 }
 
                 moves[ply][totalNumMoves] |= (ll << 16);
@@ -276,18 +287,24 @@ int Engine::fullMoveGen(int ply, bool capsOnly){
             moves[ply][totalNumMoves] = g;
             moves[ply][totalNumMoves] |= (q << 6);
 
-            // std::cout << "steps 1 2\n";
+            //mprior[ply][totalNumMoves] = 199;
 
             if ((pieces[7 * (!toMove) + 6] & (1ULL << q))) {
                 // printAsBitboard(pieces[7 * !toMove + 6]);
-                for (int cc = 0; cc < 6; cc++) {                     // find the captured piece, if any by scanning through opp bbs
+                for (int cc = 1; cc < 6; cc++) {                     // find the captured piece, if any by scanning through opp bbs
                     if (pieces[7 * (!toMove) + cc] & (1ULL << q)) {  // if enemy bitboard intersect with dest square
                         moves[ply][totalNumMoves] |= (4096U);        // capture bit set
                         moves[ply][totalNumMoves] |= (cc << 13);     // set bits accordingly and exit loop
+                        
+                        mprior[ply][totalNumMoves] = (cc << 9) - 1;
+                        
                         break;
                     }
                 }
+            } else {
+                mprior[ply][totalNumMoves] = std::max(11000, 100000 - 1 - historyTable[toMove][1][q]);
             }
+
             moves[ply][totalNumMoves] |= 0x110000U;
             moves[ply][totalNumMoves] |= (toMove << 23);
 
@@ -452,6 +469,8 @@ void Engine::setStartPos(){
     inGamePhase = 64;
     thm = 0;
     chm[0] = 0;
+    //beginZobristHash();
+    zhist[0] = 0x6344017539DA3DCBULL;
 }
 
 void Engine::sendMove(std::string expr){

@@ -15,12 +15,14 @@ class Engine{
     uint64_t nodes, mnodes;
 
     int scores[2]; int eScores[2];
+    int mobil[2]; int emobil[2];
+    uint64_t atktbl[12];
+
     int thm; int chm[1024];
     uint64_t zhist[1024];
     int inGamePhase;
     TTentry* ttable;
     uint32_t killers[64][2];
-    int numKillers[64];
 
     int historyTable[2][6][64];
 
@@ -38,9 +40,14 @@ class Engine{
     int evaluate();
     bool kingBare();
     bool isInteresting(uint32_t&, bool);
+    void beginZobristHash();
+    void beginAttackTable();
+    void calculateMobility();
+    
     void eraseTransposeTable();
     void eraseHistoryTable();
     int alphabeta(int, int, int, int, bool);
+    int quiesce(int, int, int);
 
     public:
         double rfpCoef[2] = {3.0, 67.0};
@@ -48,6 +55,21 @@ class Engine{
 
         int lmrReduces[64][128]; 
         double lmrCoef[2] = {-0.1, 0.4};
+
+        int mIndx[5] = {0, 9, 24, 33, 38};
+        int mobVals[43] =
+        {-20, -10, 0, 0, 0, 0, 0, 0, 0, 
+        -25, -20, -15, -10, -5, 0, 0, 0, 0, 5, 10, 15, 15, 20, 25,
+        -20, -15, -10, -5, 0, 5, 10, 20, 30,
+        -15, -10, 0, 5, 10,
+        -10, -5, 0, 5, 10};
+
+        int mobValsE[43] = 
+        {-50, -40, -20, -10, 0, 10, 20, 30, 35,
+        -40, -30, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25, 30, 35, 40,
+        -40, -30, -10, 0, 10, 20, 25, 30, 35,
+        -15, -10, 0, 5, 10,
+        -10, -5, 0, 5, 10};
 
         int mps[6][64] = 
         {{-38, -55, -15, -5, -5, -15, -25, -35, 
@@ -174,14 +196,12 @@ class Engine{
 
         std::string makeRandMoves(int);
 
-        void beginZobristHash();
         void showZobrist();
         int halfMoveCount();
         int evaluateScratch();
         void newGame();
         void copyEval(EvalVars);
 
-        int quiesce(int, int, int);
         int countReps();
         int search(uint32_t, int, uint64_t, bool);
 

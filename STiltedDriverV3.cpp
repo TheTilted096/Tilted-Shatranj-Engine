@@ -14,7 +14,7 @@ int main(){
 
     Engine engine;
 
-    std::string versionID = "Tilted Shatranj 26-zfix";
+    std::string versionID = "Tilted Shatranj 26-mobweak";
     std::string command, param;
 
     std::cout << "0000000000    0000000000    00            0000000000    0000000000    000000  \n";
@@ -45,7 +45,6 @@ int main(){
         }
         if (command.substr(0, 17) == "position startpos"){
             engine.setStartPos();
-            engine.beginZobristHash();
             if (command.length() > 25){
                 std::stringstream extraMoves(command.substr(24));
 
@@ -107,7 +106,11 @@ int main(){
         if (command == "printpieces"){
             engine.printAllBitboards();
         }
-    
+        if (command == "testfeature"){
+            //engine.calculateMobility();
+            //std::cout << sizeof(Engine) << '\n';
+        }
+
     }
 
     return 0;
