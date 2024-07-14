@@ -1,5 +1,12 @@
-current:
-	g++ STiltedDriverV3.cpp -static -o stilted-26-mobweak
+all: movegen.o
+	g++ -march=native -g -o stest STiltedDriverV4.cpp movegen.o
 
-spsa:
-	g++ STiltedSPSA.cpp -static -o sspsa
+movegen.o:
+	g++ -march=native -g -c STiltedMoveGenV5.cpp -o movegen.o
+
+clean:
+	del stest.exe *.o
+
+debug:
+	make clean
+	make
