@@ -1,20 +1,20 @@
 /*
-Main Driver Code for Tilted Shatranj Engine,
-2nd Refactor
+Main Driver Code for Tilted Shatranj Engine
 
-UCI compatible shatranj engine
+TheTilted096, 5-25-2024
 
-TheTilted096, 7-16-2024
+UCI interfacing and refitting to OOP design. 
 */
 
-#include "STiltedEngine.h"
+#include "stiltedsrchevlv3.cpp"
 
 int main(){
     srand(time(0));
+    Position::initZobristKeys();
 
     Engine engine;
 
-    std::string versionID = "Tilted Shatranj 26R";
+    std::string versionID = "Tilted Shatranj 26-zfix";
     std::string command, param;
 
     std::cout << "0000000000    0000000000    00            0000000000    0000000000    000000  \n";
@@ -24,9 +24,9 @@ int main(){
     std::cout << "    00            00        00                00        00            00      00\n";
     std::cout << "    00            00        00                00        00            00    00\n";
     std::cout << "    00        0000000000    0000000000        00        0000000000    000000  \n\n";
-
+        
     std::cout << versionID << " by TheTilted096\n";
-    std::cout << "(with much help from sscg13)\n";
+    std::cout << "(with much help from sscg13 and ChessMaster121)\n";
 
     while (true){
         getline(std::cin, command);
@@ -45,6 +45,7 @@ int main(){
         }
         if (command.substr(0, 17) == "position startpos"){
             engine.setStartPos();
+            engine.beginZobristHash();
             if (command.length() > 25){
                 std::stringstream extraMoves(command.substr(24));
 
@@ -98,18 +99,19 @@ int main(){
             auto end = std::chrono::steady_clock::now();
 
             std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms\n";
-            
         }
     
         if (command == "showTTZobrist"){
-            engine.showZobrist(std::cout);
+            engine.showZobrist();
         }
         if (command == "printpieces"){
-            engine.printAllBitboards(std::cout);
+            engine.printAllBitboards();
         }
         if (command == "testfeature"){
-                     
+            engine.printMoveAsBinary(1U);
         }
+        
     }
 
+    return 0;
 }

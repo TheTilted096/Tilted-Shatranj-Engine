@@ -1,33 +1,42 @@
 /*
-This is the 2nd Base of the Tilted Refactoring
+Declaration and Methods of an Engine instance
+TheTilted096, 5-25-2024
+*/
 
-This File Contains the Generator Class:
-Primary Move Generation
+/*
+This is the base code of Tilted refactoring.
+Tuning and Testing is very difficult without an Object-Oriented design,
+so this is a necessary step in maintainability.
 
-TheTilted096, 7-6-24
+TheTilted096, 5-25-2024
 */
 
 #include <cassert>
-#include <chrono> //time management 
-#include <cstdint> //uint64_t, uint32_t, uint8_t
-#include <cmath> //calculations in search parameters
-#include <fstream> //data IO
-#include <immintrin.h> //_pext_u64
-#include <iostream> //user IO
-#include <random> //variable data creation
-#include <sstream> //input IO
-#include <string> //IO purposes
+#include <chrono>
+#include <cstdint>
+#include <cmath>
+#include <fstream>
+#include <iostream>
+#include <random>
+#include <sstream>
+#include <string>
 
-//#pragma clang target("popcnt")
-//#pragma GCC optimize("O2")
+#pragma GCC target("popcnt")
+#pragma GCC optimize("O2")
 
-typedef uint32_t Move;
+#define RANK0 0xFFULL                // 8th rank
+#define RANK7 0xFF00000000000000ULL  // 1st rank
+
+#define FILE0 0x0101010101010101ULL  // A File
+
+#define LDIAG 0x8040201008040201ULL  // Long Diagonal (Left)
+#define RDIAG 0x0102040810204080ULL  // long diagonal (right)
+
 typedef uint64_t Bitboard;
-typedef uint64_t Hash;
+typedef uint32_t Move;
 
 class Bitboards{
-    static bool RookInit;
-    protected:
+    public:
         static constexpr Bitboard plt[2][64] =
         {{0x200ULL, 0x500ULL, 0xA00ULL, 0x1400ULL, 0x2800ULL, 0x5000ULL, 0xA000ULL, 0x4000ULL, 
         0x20000ULL, 0x50000ULL, 0xA0000ULL, 0x140000ULL, 0x280000ULL, 0x500000ULL, 0xA00000ULL, 0x400000ULL, 
@@ -154,72 +163,236 @@ class Bitboards{
         0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 
         0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40}};
 
-        static constexpr uint8_t RookBits[64] = 
-        {12, 11, 11, 11, 11, 11, 11, 12,
-        11, 10, 10, 10, 10, 10, 10, 11,
-        11, 10, 10, 10, 10, 10, 10, 11,
-        11, 10, 10, 10, 10, 10, 10, 11,
-        11, 10, 10, 10, 10, 10, 10, 11,
-        11, 10, 10, 10, 10, 10, 10, 11,
-        11, 10, 10, 10, 10, 10, 10, 11,
-        12, 11, 11, 11, 11, 11, 11, 12};
-
-        static constexpr Bitboard RookMasks[64] = 
-        {0x101010101017EULL, 0x202020202027CULL, 0x404040404047AULL, 0x8080808080876ULL, 
-        0x1010101010106EULL, 0x2020202020205EULL, 0x4040404040403EULL, 0x8080808080807EULL, 
-        0x1010101017E00ULL, 0x2020202027C00ULL, 0x4040404047A00ULL, 0x8080808087600ULL, 
-        0x10101010106E00ULL, 0x20202020205E00ULL, 0x40404040403E00ULL, 0x80808080807E00ULL, 
-        0x10101017E0100ULL, 0x20202027C0200ULL, 0x40404047A0400ULL, 0x8080808760800ULL, 
-        0x101010106E1000ULL, 0x202020205E2000ULL, 0x404040403E4000ULL, 0x808080807E8000ULL, 
-        0x101017E010100ULL, 0x202027C020200ULL, 0x404047A040400ULL, 0x8080876080800ULL, 
-        0x1010106E101000ULL, 0x2020205E202000ULL, 0x4040403E404000ULL, 0x8080807E808000ULL, 
-        0x1017E01010100ULL, 0x2027C02020200ULL, 0x4047A04040400ULL, 0x8087608080800ULL, 
-        0x10106E10101000ULL, 0x20205E20202000ULL, 0x40403E40404000ULL, 0x80807E80808000ULL, 
-        0x17E0101010100ULL, 0x27C0202020200ULL, 0x47A0404040400ULL, 0x8760808080800ULL, 
-        0x106E1010101000ULL, 0x205E2020202000ULL, 0x403E4040404000ULL, 0x807E8080808000ULL, 
-        0x7E010101010100ULL, 0x7C020202020200ULL, 0x7A040404040400ULL, 0x76080808080800ULL, 
-        0x6E101010101000ULL, 0x5E202020202000ULL, 0x3E404040404000ULL, 0x7E808080808000ULL, 
-        0x7E01010101010100ULL, 0x7C02020202020200ULL, 0x7A04040404040400ULL, 0x7608080808080800ULL, 
-        0x6E10101010101000ULL, 0x5E20202020202000ULL, 0x3E40404040404000ULL, 0x7E80808080808000ULL};
-        
-        static constexpr int RookOffset[64] = 
-        {0x0, 0x1000, 0x1800, 0x2000, 
-        0x2800, 0x3000, 0x3800, 0x4000, 
-        0x5000, 0x5800, 0x5C00, 0x6000, 
-        0x6400, 0x6800, 0x6C00, 0x7000, 
-        0x7800, 0x8000, 0x8400, 0x8800, 
-        0x8C00, 0x9000, 0x9400, 0x9800, 
-        0xA000, 0xA800, 0xAC00, 0xB000, 
-        0xB400, 0xB800, 0xBC00, 0xC000, 
-        0xC800, 0xD000, 0xD400, 0xD800, 
-        0xDC00, 0xE000, 0xE400, 0xE800, 
-        0xF000, 0xF800, 0xFC00, 0x10000, 
-        0x10400, 0x10800, 0x10C00, 0x11000, 
-        0x11800, 0x12000, 0x12400, 0x12800, 
-        0x12C00, 0x13000, 0x13400, 0x13800, 
-        0x14000, 0x15000, 0x15800, 0x16000, 
-        0x16800, 0x17000, 0x17800, 0x18000};
-        
-        static Bitboard hqRookAttack(int, Bitboard);
-
-        static Bitboard RookBoards[0x19000];
-
-        Bitboard sides[2];
-        Bitboard pieces[6];
+        uint64_t pieces[14];
         bool toMove;
 
-    public:
-        Bitboards();
-        static void initRookTable();
-        
-        bool isChecked(bool);
-
-        bool ownBare(bool);
+        bool isChecked();
         bool kingBare();
+        uint64_t hyperbolaQuintessence(int&);
+        bool ownKingBare();
 
-        void printAllBitboards(std::ostream&);
+        bool getSide();
+        void printAllBitboards();
 
-        static void printAsBitboard(Bitboard, std::ostream&);
-        static void printMoveAsBinary(Move, std::ostream&);
         static std::string moveToAlgebraic(Move&);
+        static void printMoveAsBinary(Move);
+        static void printAsBitboard(Bitboard);
 };
+
+class Position : public Bitboards{
+    public:
+        uint32_t moves[96][128];
+        int mprior[96][128];
+
+        int scores[2], eScores[2];
+        int thm, chm[1024];
+        uint64_t zhist[1024];
+        
+        int historyTable[2][6][64];
+        int inGamePhase;
+
+        uint64_t nodes;
+
+        static constexpr int totalGamePhase = 64;
+        static constexpr int phases[6] = {0, 6, 4, 2, 1, 1};
+        static constexpr int matVals[6] = {0, 650, 400, 200, 150, 100};
+
+        //Zobrist Hashing
+        static uint64_t zpk[2][6][64];
+        static uint64_t ztk;
+
+        int mps[6][64] = 
+        {{-38, -55, -15, -5, -5, -15, -25, -35, 
+        -55, -18, 15, 15, 15, 15, 5, -25, 
+        -45, -8, 18, 11, 0, 25, 12, -34, 
+        -40, -5, 4, 0, 0, 22, 25, -10, 
+        -6, -5, 2, 0, 0, 0, 14, -33, 
+        -10, 15, 9, 15, 25, 7, 20, -12, 
+        -16, 15, 10, 9, 4, 15, 15, -21, 
+        -26, -45, -5, 2, 5, -5, -15, -32},
+
+        {15, 5, -15, -15, -15, -15, -14, 15, 
+        2, 15, 39, 15, 17, 26, 15, 28, 
+        -5, 3, -15, -15, -15, 9, 1, 11, 
+        -4, -8, 15, 15, -15, 15, -6, -11, 
+        0, 15, -15, 1, -15, 14, 15, -2, 
+        0, 15, 15, -15, 15, -8, 14, -4, 
+        -30, -15, -15, -15, -15, 12, -2, -30, 
+        -15, -15, 23, 15, 15, 16, 15, -15},
+
+        {-65, -50, -15, -15, -45, -31, -46, -64, 
+        -55, -5, -25, -15, 15, -21, -5, -55, 
+        -32, -10, 20, -5, -3, 21, 2, -39, 
+        -5, 10, 0, 5, 31, 0, 19, -5, 
+        -5, 19, 0, 21, 34, 19, -10, -15, 
+        -35, 15, -5, 25, 22, 0, 15, -45, 
+        -28, -35, -20, -11, 10, -14, -35, -41, 
+        -38, -25, -15, -41, -43, -21, -25, -65},
+
+        {-30, -50, -23, -34, -15, -45, -50, -55, 
+        -18, 12, -10, -5, -5, -9, -15, -42, 
+        -29, 9, 8, 5, 7, 5, 14, -5, 
+        -30, 1, 25, 15, 44, 5, 15, -30, 
+        -14, -10, 0, 43, 15, 29, 19, -25, 
+        -5, -6, -5, 5, 19, 5, -10, -18, 
+        -35, -25, -7, 0, 0, -13, -17, -45, 
+        -38, -35, -15, -39, -25, -27, -50, -40},
+
+        {0, 0, 0, 0, 0, 0, 0, 0, 
+        -10, 0, 0, 15, -5, 0, 0, -10, 
+        0, 0, 0, 0, 0, 0, 0, 0, 
+        0, 5, 15, 0, 0, 19, 5, 0, 
+        0, 0, 0, 0, 0, 0, 0, 0, 
+        -15, 0, 0, -5, -5, 0, 0, 7, 
+        0, 0, 0, 0, 0, 0, 0, 0, 
+        0, -35, -32, 0, 0, -13, -35, 0},
+
+        {0, 0, 0, 0, 0, 0, 0, 0, 
+        6, 5, 12, 15, 15, 10, 10, 5, 
+        0, 4, 3, 13, 13, 4, 3, 0, 
+        10, -5, -3, 36, 10, 16, -6, -7, 
+        -3, -3, 17, 31, 30, 19, -3, -3, 
+        0, 4, 27, 35, 19, 15, 1, -1, 
+        -20, -25, -10, -15, -15, -19, -25, -20, 
+        0, 0, 0, 0, 0, 0, 0, 0}};
+
+        int eps[6][64] = 
+        {{-85, -77, -65, -55, -55, -65, -75, -85, 
+        -83, -25, -15, -5, -5, -15, -25, -75, 
+        -65, -15, 30, 20, 20, 30, -15, -65, 
+        -55, -5, 23, 55, 55, 24, -5, -55, 
+        -63, -5, 20, 55, 55, 33, -5, -55, 
+        -65, -15, 23, 22, 43, 21, -15, -65, 
+        -75, -25, -15, -5, -5, -15, -25, -75, 
+        -85, -92, -65, -56, -55, -65, -75, -85},
+
+        {15, 6, -14, -12, 10, -13, -15, 15, 
+        -10, -5, -2, -4, -3, 1, -5, 11, 
+        -15, -15, -15, -15, -15, -15, -13, -15, 
+        10, 15, -9, 5, -15, -5, -15, -6, 
+        10, 15, -15, -15, -15, -4, 7, 10, 
+        10, -13, 2, 12, 15, -5, 13, 10, 
+        -10, 8, -15, -15, -14, -15, -14, -20, 
+        5, 0, 20, -2, 18, -5, 3, 5},
+
+        {-65, -27, -15, -16, -45, -19, -28, -36, 
+        -54, -5, -25, -15, 15, -12, -8, -55, 
+        -45, 12, 25, -5, -4, -4, -8, -45, 
+        -5, -6, 21, 5, 6, 0, 20, -34, 
+        -6, 19, 1, 5, 6, 10, 8, -13, 
+        -45, 15, -5, 14, -5, 19, 11, -15, 
+        -42, -31, -24, 0, 14, -14, -16, -25, 
+        -36, -25, -31, -40, -15, -15, -25, -56},
+
+        {-25, -50, -37, -40, -40, -45, -50, -55, 
+        -16, 12, -10, -5, -5, -10, -15, -40, 
+        -19, -10, -5, 5, 5, 5, 16, -5, 
+        -25, 1, -5, 5, 5, 5, 12, -30, 
+        -25, -10, 0, 5, 5, 0, 19, -25, 
+        -5, -9, -10, 5, 5, 5, -10, -5, 
+        -45, -17, -15, 0, 0, -15, -25, -16, 
+        -26, -35, -15, -40, -38, -45, -50, -40},
+
+        {0, 0, 0, 0, 0, 0, 0, 0, 
+        -10, 0, 0, -2, -5, 0, 0, -10, 
+        0, 0, 0, 0, 0, 0, 0, 0, 
+        0, 5, 15, 0, 0, 15, 5, 0, 
+        0, 0, 0, 0, 0, 0, 0, 0, 
+        -4, 0, 0, -5, -5, 0, 0, 3, 
+        0, 0, 0, 0, 0, 0, 0, 0, 
+        0, -27, -26, 0, 0, -29, -35, 0},
+
+        {0, 0, 0, 0, 0, 0, 0, 0, 
+        27, 5, 11, 15, 15, 10, 10, 5, 
+        15, 4, 3, 13, 13, 4, 3, 0, 
+        -4, -5, 6, 10, 10, -5, -6, -7, 
+        -3, -3, 5, 10, 10, 5, -3, -3, 
+        0, 1, 2, 23, 28, 1, 0, -1, 
+        -20, -25, -8, -15, -15, -5, -25, -18, 
+        0, 0, 0, 0, 0, 0, 0, 0}};
+
+        int countReps();
+        int evaluate();
+        int evaluateScratch();
+
+        void setStartPos();
+        int fullMoveGen(int, bool);
+        uint64_t perft(int, int);
+
+        void makeMove(uint32_t, bool, bool);
+        void sendMove(std::string);
+
+        void eraseHistoryTable();
+        void beginZobristHash();
+        
+        int halfMoveCount();
+        void readFen(std::string);
+        std::string makeFen();
+
+        std::string makeRandMoves(int);
+
+        static void initZobristKeys();
+};
+
+//Transposition Table Entry
+class TTentry{
+    public:
+        int eScore;
+        uint64_t eHash;
+        int enType;
+        int eDepth;
+        uint32_t eMove;
+        uint64_t* zhist;
+
+        TTentry();
+        TTentry(uint64_t[]);
+        void update(int&, int, int&, uint32_t, int);
+        void reset();
+        void print();
+};
+
+struct EvalVars{
+    double* rc;
+    double* aw;
+};
+
+class Engine : public Position{
+    public:
+    Move bestMove;
+
+    uint64_t mnodes;
+
+    TTentry* ttable;
+    uint32_t killers[64][2];
+    int numKillers[64];
+
+    int64_t thinkLimit; //think time limit
+    std::chrono::_V2::steady_clock::time_point moment;
+    
+    void endHandle();
+
+    bool isInteresting(uint32_t&, bool);
+    void eraseTransposeTable();
+    int alphabeta(int, int, int, int, bool);
+
+        double rfpCoef[2] = {3.0, 67.0};
+        double aspWins[5] = {73.5, 120.0, 240.0, 480.0, 40000.0};
+
+        int lmrReduces[64][128]; 
+        double lmrCoef[2] = {-0.1, 0.4};
+
+        Engine();
+
+        Move getMove();
+
+        void showZobrist();
+        void newGame();
+        void copyEval(EvalVars);
+
+        int quiesce(int, int, int);
+        int search(uint32_t, int, uint64_t, bool);
+
+        ~Engine();
+};
+
+
