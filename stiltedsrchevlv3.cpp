@@ -6,91 +6,6 @@ TheTilted096, 5-25-2024
 
 #include "stiltedmvgnv4.cpp"
 
-TTentry::TTentry(){
-    eScore = -29501;
-    eHash = 0; enType = -1;
-    eDepth = -1; eMove = 0;
-    zhist = nullptr;
-}
-
-void TTentry::reset(){
-    eScore = -29501;
-    eHash = 0; enType = -1;
-    eDepth = -1; eMove = 0;
-}
-
-TTentry::TTentry(uint64_t t[]){
-    eScore = -29501;
-    eHash = 0; enType = -1;
-    eDepth = -1; eMove = 0;
-    zhist = t;
-}
-
-void TTentry::update(int& sc, int nt, int& d, uint32_t dm, int thm){
-    if ((d >= eDepth) or (zhist[thm] != eHash)){
-        eScore = sc;
-        enType = nt;
-        eDepth = d;
-        eHash = zhist[thm];
-        eMove = dm;
-    }
-}
-
-void TTentry::print(){
-    std::cout << "Index: " << (eHash & 0xFFFFF) << "     Score: " << eScore
-        << "\tdepthAt: " << eDepth << "     nodeType: " << enType << "     Move: " 
-            << Bitboards::moveToAlgebraic(eMove) << '\n';
-}
-
-void Engine::endHandle(){
-    if ((nodes % 2000 == 0) and 
-            (std::chrono::duration_cast<std::chrono::milliseconds>
-                (std::chrono::steady_clock::now() - moment).count() >= thinkLimit)){
-        throw "Time Expired\n";
-    }
-    if (nodes > mnodes) {
-        throw "Nodes Exceeded\n";
-    }
-}
-
-void Engine::eraseTransposeTable(){
-    for (int i = 0; i < 0x100000; i++){
-        if (ttable[i].enType != -1){
-            ttable[i].reset();
-        }
-    }
-}
-
-void Position::eraseHistoryTable(){
-    for (int i = 0; i < 6; i++){
-        for (int j = 0; j < 64; j++){
-            historyTable[0][i][j] = 0;
-            historyTable[1][i][j] = 0;
-        }
-    }
-}
-
-int Position::halfMoveCount(){
-    return chm[thm];
-}
-
-void Engine::copyEval(EvalVars e){
-    if (e.rc != nullptr){
-        rfpCoef[0] = e.rc[0];
-        rfpCoef[1] = e.rc[1];
-    }
-    if (e.aw != nullptr){
-        for (int i = 0; i < 5; i++){
-            aspWins[i] = e.aw[i];
-        }
-    }
-}
-
-void Engine::newGame(){
-    setStartPos();
-    beginZobristHash();
-    eraseTransposeTable();
-}
 
 int Position::evaluateScratch(){
     scores[1] = 0; scores[0] = 0;
@@ -140,12 +55,132 @@ int Position::evaluate(){
     return (mdiff * inGamePhase + ediff * (64 - inGamePhase)) / 64;
 }
 
-bool Bitboards::kingBare(){ //returns true if 'toMove' king is bare, false otherwise, and false when both bare.
-    bool b = (pieces[6] == pieces[0]);
-    bool w = (pieces[13] == pieces[7]);
 
-    return ((toMove and !w and b) or (!toMove and w and !b));
-    // (black tM and white not bare and black bare) OR (white tM and white bare and black not bare);
+
+
+TTentry::TTentry(){
+    eScore = -29501;
+    eHash = 0; enType = -1;
+    eDepth = -1; eMove = 0;
+    zhist = nullptr;
+}
+
+void TTentry::reset(){
+    eScore = -29501;
+    eHash = 0; enType = -1;
+    eDepth = -1; eMove = 0;
+}
+
+TTentry::TTentry(uint64_t t[]){
+    eScore = -29501;
+    eHash = 0; enType = -1;
+    eDepth = -1; eMove = 0;
+    zhist = t;
+}
+
+void TTentry::update(int& sc, int nt, int& d, uint32_t dm, int thm){
+    if ((d >= eDepth) or (zhist[thm] != eHash)){
+        eScore = sc;
+        enType = nt;
+        eDepth = d;
+        eHash = zhist[thm];
+        eMove = dm;
+    }
+}
+
+void TTentry::print(){
+    std::cout << "Index: " << (eHash & 0xFFFFF) << "     Score: " << eScore
+        << "\tdepthAt: " << eDepth << "     nodeType: " << enType << "     Move: " 
+            << Bitboards::moveToAlgebraic(eMove) << '\n';
+}
+
+
+
+Engine::Engine(){
+    for (int i = 0; i < 6; i++) {
+        for (int j = 0; j < 64; j++) {
+            mps[i][j] += matVals[i];
+            eps[i][j] += matVals[i];
+
+            historyTable[0][i][j] = 0;
+            historyTable[1][i][j] = 0;
+        }
+    }
+    setStartPos();
+    beginZobristHash();
+    mnodes= ~0ULL;
+    nodes = 0;
+    
+    thinkLimit = 0xFFFFFFFF;
+    moment = std::chrono::steady_clock::now();
+
+    ttable = new TTentry[0x100000];
+    for (int i = 0; i < 0x100000; i++){
+        ttable[i] = TTentry(zhist);
+    }
+
+    for (int i = 1; i < 64; i++){
+        for (int j = 1; j < 128; j++){
+            lmrReduces[i][j] = std::max(0.0, floor(lmrCoef[0] + lmrCoef[1] * log(i) * log(j)));
+        }
+    }
+}
+
+Engine::~Engine(){
+    delete[] ttable;
+}
+
+
+void Engine::showZobrist(){
+    std::cout << "Tranposition Table:\n";
+    for (int k = 1; k < 15; k++){
+        for (int i = 0; i < 0xFFFFF; i++){
+            if (ttable[i].eDepth == k){
+                ttable[i].print();
+            }
+        }
+    }
+    std::cout << "\nZobrist History + Last 20 Bits\n";
+    for (int j = 0; j < thm + 1; j++){
+        std::cout << "ZH " << j << ": " << zhist[j] << "\tIndex: " << (zhist[j] & 0xFFFFF) << '\n';
+    }
+}
+
+void Engine::endHandle(){
+    if ((nodes % 2000 == 0) and 
+            (std::chrono::duration_cast<std::chrono::milliseconds>
+                (std::chrono::steady_clock::now() - moment).count() >= thinkLimit)){
+        throw "Time Expired\n";
+    }
+    if (nodes > mnodes) {
+        throw "Nodes Exceeded\n";
+    }
+}
+
+void Engine::eraseTransposeTable(){
+    for (int i = 0; i < 0x100000; i++){
+        if (ttable[i].enType != -1){
+            ttable[i].reset();
+        }
+    }
+}
+
+void Engine::copyEval(EvalVars e){
+    if (e.rc != nullptr){
+        rfpCoef[0] = e.rc[0];
+        rfpCoef[1] = e.rc[1];
+    }
+    if (e.aw != nullptr){
+        for (int i = 0; i < 5; i++){
+            aspWins[i] = e.aw[i];
+        }
+    }
+}
+
+void Engine::newGame(){
+    setStartPos();
+    beginZobristHash();
+    eraseTransposeTable();
 }
 
 bool Engine::isInteresting(uint32_t& move, bool checked){
@@ -201,31 +236,6 @@ int Engine::quiesce(int alpha, int beta, int lply){
         }   
     }
     return alpha;    
-}
-
-int Position::countReps(){
-    /*
-    int rind = thm;
-    int reps = 0;
-
-    while (chm[rind] and (rind >= 0)){ //search until the latest reset
-        if (zhist[thm] == zhist[rind]){
-            reps++;
-        }
-        rind -= 2;
-    }
-    return reps;
-    */
-    
-    int rind = thm;
-    int reps = 1;
-    do {
-        rind -= 2;
-        if (zhist[thm] == zhist[rind]){ reps++; }
-    } while (chm[rind] and (rind >= 0));
-
-    return reps;
-    
 }
 
 int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){

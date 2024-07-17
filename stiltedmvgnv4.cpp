@@ -4,41 +4,7 @@ TheTilted096, 5-25-2024
 
 */
 
-#include "STiltedEngine.cpp"
-
-Engine::Engine(){
-    for (int i = 0; i < 6; i++) {
-        for (int j = 0; j < 64; j++) {
-            mps[i][j] += matVals[i];
-            eps[i][j] += matVals[i];
-
-            historyTable[0][i][j] = 0;
-            historyTable[1][i][j] = 0;
-        }
-    }
-    setStartPos();
-    beginZobristHash();
-    mnodes= ~0ULL;
-    nodes = 0;
-    
-    thinkLimit = 0xFFFFFFFF;
-    moment = std::chrono::steady_clock::now();
-
-    ttable = new TTentry[0x100000];
-    for (int i = 0; i < 0x100000; i++){
-        ttable[i] = TTentry(zhist);
-    }
-
-    for (int i = 1; i < 64; i++){
-        for (int j = 1; j < 128; j++){
-            lmrReduces[i][j] = std::max(0.0, floor(lmrCoef[0] + lmrCoef[1] * log(i) * log(j)));
-        }
-    }
-}
-
-Engine::~Engine(){
-    delete[] ttable;
-}
+#include "stiltedengin.h"
 
 void Bitboards::printAsBitboard(Bitboard board){
     for (int i = 0; i < 64; i++) {
@@ -67,8 +33,89 @@ void Bitboards::printMoveAsBinary(Move move){
     std::cout << '\n';
 }
 
+std::string Bitboards::moveToAlgebraic(Move& move){
+    uint8_t start = move & 63U;
+    uint8_t end = (move >> 6) & 63U;
+
+    std::string result;
+
+    result += ((start & 7) + 97);
+    result += (8 - (start >> 3)) + 48;
+
+    result += ((end & 7) + 97);
+    result += (8 - (end >> 3)) + 48;
+
+    if ((move >> 19) & 1U) {
+        result += 'q';
+    }
+
+    return result;
+}
+
+bool Bitboards::kingBare(){ //returns true if 'toMove' king is bare, false otherwise, and false when both bare.
+    bool b = (pieces[6] == pieces[0]);
+    bool w = (pieces[13] == pieces[7]);
+
+    return ((toMove and !w and b) or (!toMove and w and !b));
+    // (black tM and white not bare and black bare) OR (white tM and white bare and black not bare);
+}
+
 bool Bitboards::ownKingBare(){
     return (pieces[toMove * 7] == pieces[toMove * 7 + 6]);
+}
+
+bool Bitboards::isChecked(){  // checks if the opposing side is left in check; called after makeMove
+    uint64_t phantomSet;
+    int kingSquare = __builtin_ctzll(pieces[7 * !toMove]);
+    //! toMove = friends, toMove = enemy
+
+    // rook checks
+    phantomSet = hyperbolaQuintessence(kingSquare);
+    phantomSet |= ((uint64_t)hlt[kingSquare & 7][((((RANK0 << ((kingSquare & 56))) & (pieces[6] | pieces[13])) >> (kingSquare & 56)) >> 1) & 63])
+                  << (kingSquare & 56);         // rook moveset
+    if (phantomSet & pieces[7 * toMove + 1]) {  // if intersects with opp rooks, in check
+        return true;
+    }
+
+    // pawn checks
+    if (plt[!toMove][kingSquare] & pieces[7 * toMove + 5]) {
+        return true;
+    }
+
+    int leapers[4] = {2, 3, 0, 4};
+    for (int ll : leapers) {
+        if (llt[ll][kingSquare] & pieces[7 * toMove + ll]) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void Bitboards::printAllBitboards(){
+    std::cout << "\nWhite's Pieces\n";
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 7; j++) {
+            for (int k = 8 * i; k < 8 * i + 8; k++) {
+                std::cout << ((pieces[7 + j] >> k) & 1);
+            }
+            std::cout << '\t';
+        }
+        std::cout << '\n';
+    }
+
+    std::cout << "\nBlack's Pieces\n";
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 7; j++) {
+            for (int k = 8 * i; k < 8 * i + 8; k++) {
+                std::cout << ((pieces[j] >> k) & 1);
+            }
+            std::cout << '\t';
+        }
+        std::cout << '\n';
+    }
+
+    std::cout << "toMove: " << toMove << '\n';
+    //std::cout << "Repetitions: " << countReps() << "\n\n";
 }
 
 uint64_t Bitboards::hyperbolaQuintessence(int& square){
@@ -83,6 +130,12 @@ uint64_t Bitboards::hyperbolaQuintessence(int& square){
 
     return forward;
 }
+
+
+
+
+
+
 
 uint64_t Position::zpk[2][6][64];
 uint64_t Position::ztk;
@@ -136,65 +189,42 @@ void Position::beginZobristHash(){
     }
 }
 
-void Engine::showZobrist(){
-    std::cout << "Tranposition Table:\n";
-    for (int k = 1; k < 15; k++){
-        for (int i = 0; i < 0xFFFFF; i++){
-            if (ttable[i].eDepth == k){
-                ttable[i].print();
-            }
+void Position::eraseHistoryTable(){
+    for (int i = 0; i < 6; i++){
+        for (int j = 0; j < 64; j++){
+            historyTable[0][i][j] = 0;
+            historyTable[1][i][j] = 0;
         }
-    }
-    std::cout << "\nZobrist History + Last 20 Bits\n";
-    for (int j = 0; j < thm + 1; j++){
-        std::cout << "ZH " << j << ": " << zhist[j] << "\tIndex: " << (zhist[j] & 0xFFFFF) << '\n';
     }
 }
 
-void Bitboards::printAllBitboards(){
-    std::cout << "\nWhite's Pieces\n";
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 7; j++) {
-            for (int k = 8 * i; k < 8 * i + 8; k++) {
-                std::cout << ((pieces[7 + j] >> k) & 1);
-            }
-            std::cout << '\t';
-        }
-        std::cout << '\n';
-    }
-
-    std::cout << "\nBlack's Pieces\n";
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 7; j++) {
-            for (int k = 8 * i; k < 8 * i + 8; k++) {
-                std::cout << ((pieces[j] >> k) & 1);
-            }
-            std::cout << '\t';
-        }
-        std::cout << '\n';
-    }
-
-    std::cout << "toMove: " << toMove << '\n';
-    //std::cout << "Repetitions: " << countReps() << "\n\n";
+int Position::halfMoveCount(){
+    return chm[thm];
 }
 
-std::string Bitboards::moveToAlgebraic(Move& move){
-    uint8_t start = move & 63U;
-    uint8_t end = (move >> 6) & 63U;
+int Position::countReps(){
+    /*
+    int rind = thm;
+    int reps = 0;
 
-    std::string result;
-
-    result += ((start & 7) + 97);
-    result += (8 - (start >> 3)) + 48;
-
-    result += ((end & 7) + 97);
-    result += (8 - (end >> 3)) + 48;
-
-    if ((move >> 19) & 1U) {
-        result += 'q';
+    while (chm[rind] and (rind >= 0)){ //search until the latest reset
+        if (zhist[thm] == zhist[rind]){
+            reps++;
+        }
+        rind -= 2;
     }
+    return reps;
+    */
+    
+    int rind = thm;
+    int reps = 1;
+    do {
+        rind -= 2;
+        if (zhist[thm] == zhist[rind]){ reps++; }
+    } while (chm[rind] and (rind >= 0));
 
-    return result;
+    return reps;
+    
 }
 
 /*
@@ -364,33 +394,6 @@ int Position::fullMoveGen(int ply, bool capsOnly){
     }
 
     return totalNumMoves;
-}
-
-bool Bitboards::isChecked(){  // checks if the opposing side is left in check; called after makeMove
-    uint64_t phantomSet;
-    int kingSquare = __builtin_ctzll(pieces[7 * !toMove]);
-    //! toMove = friends, toMove = enemy
-
-    // rook checks
-    phantomSet = hyperbolaQuintessence(kingSquare);
-    phantomSet |= ((uint64_t)hlt[kingSquare & 7][((((RANK0 << ((kingSquare & 56))) & (pieces[6] | pieces[13])) >> (kingSquare & 56)) >> 1) & 63])
-                  << (kingSquare & 56);         // rook moveset
-    if (phantomSet & pieces[7 * toMove + 1]) {  // if intersects with opp rooks, in check
-        return true;
-    }
-
-    // pawn checks
-    if (plt[!toMove][kingSquare] & pieces[7 * toMove + 5]) {
-        return true;
-    }
-
-    int leapers[4] = {2, 3, 0, 4};
-    for (int ll : leapers) {
-        if (llt[ll][kingSquare] & pieces[7 * toMove + ll]) {
-            return true;
-        }
-    }
-    return false;
 }
 
 void Position::makeMove(uint32_t move, bool forward, bool ev){
