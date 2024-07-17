@@ -1,12 +1,4 @@
-all: movegen.o
-	g++ -march=native -g -o stest STiltedDriverV4.cpp movegen.o
-
-movegen.o:
-	g++ -march=native -g -c STiltedMoveGenV5.cpp -o movegen.o
-
-clean:
-	del stest.exe *.o
-
+all:
+	clang++ -O2 -Wall -g -march=native -o stilted-26R STiltedDriverV4.cpp STiltedMoveGenV5.cpp STiltedSearchEvalV4.cpp
 debug:
-	make clean
-	make
+	clang++ -g -Wall -march=native -o stest STiltedDriverV4.cpp STiltedMoveGenV5.cpp STiltedSearchEvalV4.cpp

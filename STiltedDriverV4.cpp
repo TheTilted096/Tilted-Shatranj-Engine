@@ -1,77 +1,115 @@
 /*
-Driver Code for Tilted Shatranj Engine
-Fitted for 2nd Refactor of OOP Design
+Main Driver Code for Tilted Shatranj Engine,
+2nd Refactor
 
-UCI-Compatible Shatranj Engine "Tilted"
+UCI compatible shatranj engine
 
-7-7-24
-
+TheTilted096, 7-16-2024
 */
 
-#include "STiltedPosition.h"
+#include "STiltedEngine.h"
 
 int main(){
-    Position::initRookTable();
+    srand(time(0));
+
+    Engine engine;
+
+    std::string versionID = "Tilted Shatranj 26R";
+    std::string command, param;
+
+    std::cout << "0000000000    0000000000    00            0000000000    0000000000    000000  \n";
+    std::cout << "    00            00        00                00        00            00    00\n";
+    std::cout << "    00            00        00                00        00            00      00\n";
+    std::cout << "    00            00        00                00        0000000000    00      00\n";
+    std::cout << "    00            00        00                00        00            00      00\n";
+    std::cout << "    00            00        00                00        00            00    00\n";
+    std::cout << "    00        0000000000    0000000000        00        0000000000    000000  \n\n";
+
+    std::cout << versionID << " by TheTilted096\n";
+    std::cout << "(with much help from sscg13)\n";
+
+    while (true){
+        getline(std::cin, command);
+        if (command == "quit"){
+            return 0;
+        }
+        if (command == "uci"){
+            std::cout << "id name " << versionID << "\nid author TheTilted096\n";
+            std::cout << "option name UCI_Variant type combo default shatranj var shatranj\nuciok\n";
+        }
+        if (command == "isready"){
+            std::cout << "readyok\n";
+        }
+        if (command == "ucinewgame"){
+            engine.newGame();
+        }
+        if (command.substr(0, 17) == "position startpos"){
+            engine.setStartPos();
+            if (command.length() > 25){
+                std::stringstream extraMoves(command.substr(24));
+
+                while (!extraMoves.eof()){
+                    extraMoves >> param;
+                    engine.sendMove(param);
+                }
+            }
+        }
+        if (command.substr(0, 12) == "position fen"){
+            engine.readFen(command.substr(13));
+        }
+        if (command.substr(0, 2) == "go"){
+            std::stringstream goStream(command.substr(3));
+            std::string ourTime = engine.getSide() ? "wtime" : "btime";
+            std::string ourInc = engine.getSide() ? "winc" : "binc";
+
+            uint32_t tTime = 0xFFFFFFFF;
+            int tDepth = 63;
+            uint64_t maxNodes = 0x3FFFFFFFULL;
+
+            while (!goStream.eof()){
+                goStream >> param;
+                if (param == ourTime){
+                    goStream >> param;
+                    tTime = stoi(param) / 40;
+                }
+                if (param == ourInc){
+                    goStream >> param;
+                    tTime += stoi(param) / 2;
+                }
+                if (param == "depth"){
+                    goStream >> param;
+                    tDepth = stoi(param);
+                }
+                if (param == "nodes"){
+                    goStream >> param;
+                    maxNodes = stoi(param);
+                }
+                if (param == "movetime"){
+                    goStream >> param;
+                    tTime = stoi(param);
+                }
+            }
+
+            engine.search(tTime, tDepth, maxNodes, true);
+        }
+        if (command.substr(0, 6) == "perft "){
+            auto start = std::chrono::steady_clock::now();
+            std::cout << '\n' << engine.perft((int) command[6] - 48, 0) << '\n';
+            auto end = std::chrono::steady_clock::now();
+
+            std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms\n";
+            
+        }
     
-    /*
-    Bitboard testocc = 0x10182016200010ULL;
-    int sq = 28;
-
-    std::cout << "RookMask[28]\n";
-    Position::printAsBitboard(Position::RookMasks[sq], std::cout);
-    std::cout << "Occupied Squares\n";
-    Position::printAsBitboard(testocc, std::cout);
-    //Position::hqRookAttack(sq, testocc);
-
-    Bitboard atks = Position::RookBoards[Position::RookOffset[sq] + 
-        _pext_u64(testocc, Position::RookMasks[sq])];
-
-    std::cout << "Rook Attacks at 28\n";
-    Position::printAsBitboard(atks, std::cout);
-    */
-
-    Position testPos;
-
-    testPos.readFen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w - - 0 1");
-    //testPos.sendMove("e2c4"); //12847284
-    //testPos.sendMove("h3g2"); //5619119
-    //testPos.sendMove("h1f1"); //9506687
-    
-
-    
-    
-    //testPos.makemove(10619902U); //g1h3
-    //testPos.makemove(5571917U); //f7f6
-    //testPos.makemove(10618799U); //h3g5
-    //testPos.makemove(4503696U); //a6c4
-
-    testPos.printAllBitboards(std::cout);
-    testPos.showZobrist(std::cout);
-
-
-    auto start = std::chrono::steady_clock::now();
-    std::cout << testPos.perft(6, 0) << '\n';
-    auto end = std::chrono::steady_clock::now();
-    std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    
-
-    //std::cout << testPos.perft(4, 0) << '\n';
-    
-    /*
-    int nn = testPos.fullMoveGen(0, false);
-    for (int i = 0; i < nn; i++){
-        std::cout << Position::moveToAlgebraic(testPos.moves[0][i]) << '\n';
-        Position::printMoveAsBinary(testPos.moves[0][i], std::cout);
-        std::cout << testPos.moves[0][i] << '\n';
+        if (command == "showTTZobrist"){
+            engine.showZobrist(std::cout);
+        }
+        if (command == "printpieces"){
+            engine.printAllBitboards(std::cout);
+        }
+        if (command == "testfeature"){
+                     
+        }
     }
-    */
-    
-    
-    
 
-
-
-    
-
-    return 0;
 }

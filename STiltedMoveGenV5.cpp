@@ -1,20 +1,22 @@
 /*
-5th Generation MoveGen
-2nd Refactor
+Function Definition for Move Generation Classes
 
-Definition of Functions in
-Position Class
+Contains Bitboard methods and some Position methods
 
+TheTilted096, 7-15-2024
 */
 
-#include "STiltedPosition.h"
+#include "STiltedEngine.h"
 
-Bitboard Position::RookBoards[0x19000];
-std::ofstream exStream("exFile.txt");
+bool Bitboards::RookInit = false;
+Bitboard Bitboards::RookBoards[0x19000];
 
-Position::Position(){}
+Bitboards::Bitboards(){ 
+    if (!RookInit){ initRookTable(); }
+    RookInit = true;
+}
 
-Bitboard Position::hqRookAttack(int sq, Bitboard occ){
+Bitboard Bitboards::hqRookAttack(int sq, Bitboard occ){
     Bitboard forward = occ & (0x0101010101010101ULL << (sq & 7));
     Bitboard reverse = __builtin_bswap64(forward);
 
@@ -35,7 +37,7 @@ Bitboard Position::hqRookAttack(int sq, Bitboard occ){
     return (forward | horizontal);
 }
 
-void Position::initRookTable(){
+void Bitboards::initRookTable(){
     int pos = 0;
     Bitboard cons;
 
@@ -51,21 +53,117 @@ void Position::initRookTable(){
     }
 }
 
-/*
-Move Representation:
+void Bitboards::printAsBitboard(Bitboard bb, std::ostream& ou){
+    for (int i = 0; i < 64; i++){
+        ou << (bb & 1);
+        if ((i & 7) == 7){
+            ou << '\n';
+        }
+        bb >>= 1;
+    }
+    ou << '\n';
+}
 
-0000 0000 0 000 0 000 000 0 000000 000000
+void Bitboards::printMoveAsBinary(Move move, std::ostream& ou){
+    int spaces[8] = {25, 19, 18, 15, 12, 11, 8, 7};
 
-0-5: start square
-6-11: end square
+    for (int i = 0; i < 32; i++){
+        ou << ((move >> (31 - i)) & 1U);
+        for (int j : spaces){
+            if (i == j){
+                ou << ' ';
+                break;
+            }
+        }
+    }
+    ou << '\n';
+}
 
-12: Capture
-13-15: Captured Type
-16-18: Piece Type Moved
-19: Promotion
-20-22: Piece End Type
-23: Color
-*/
+void Bitboards::printAllBitboards(std::ostream& ou){
+    ou << "sides[0] (black)\tsides[1] (white)\n";
+    for (int i = 0; i < 8; i++){
+        for (int j = 0; j < 8; j++){
+            ou << ((sides[0] >> ((i << 3) + j)) & 1ULL);
+        }
+        ou << "\t\t";
+        for (int j = 0; j < 8; j++){
+            ou << ((sides[1] >> ((i << 3) + j)) & 1ULL);
+        }
+        ou << '\n';
+    }
+
+    ou << "\n\npieces[0]\tpieces[1]\tpieces[2]\tpieces[3]\tpieces[4]\tpieces[5]\n";
+    for (int i = 0; i < 8; i++){
+        for (int k = 0; k < 6; k++){
+            for (int j = 0; j < 8; j++){
+                ou << ((pieces[k] >> ((i << 3) + j)) & 1ULL);
+            }
+            ou << '\t';
+        }
+        ou << '\n';
+    }
+    ou << '\n';
+    ou << "wasChecked: " << isChecked(!toMove) << '\n';
+    ou << "isChecked: " << isChecked(toMove) << '\n';
+    ou << "toMove: " << toMove << "\n\n";
+}
+
+std::string Bitboards::moveToAlgebraic(Move& move){
+    uint8_t start = move & 63U;
+    uint8_t end = (move >> 6) & 63U;
+
+    std::string result;
+
+    result += ((start & 7) + 97);
+    result += (8 - (start >> 3)) + 48;
+
+    result += ((end & 7) + 97);
+    result += (8 - (end >> 3)) + 48;
+
+    if ((move >> 19) & 1U) {
+        result += 'q';
+    }
+
+    return result;
+}
+
+bool Bitboards::ownBare(bool sd){
+    return (__builtin_popcountll(sides[sd]) == 1);
+}
+
+bool Bitboards::kingBare(){
+    bool b = (__builtin_popcountll(sides[0]) == 1);
+    bool w = (__builtin_popcountll(sides[1]) == 1);
+    return (toMove and !w and b) or (!toMove and w and !b);
+}
+
+bool Bitboards::isChecked(bool sd){
+    uint64_t inc;
+    int ksq = __builtin_ctzll(sides[sd] & pieces[0]);
+    //std::cout << "kingSquare: ksq\n";
+    inc = llt[0][ksq] & pieces[0] & sides[!sd];
+    inc |= RookBoards[RookOffset[ksq] + _pext_u64((sides[0] | sides[1]), RookMasks[ksq])] 
+        & pieces[1] & sides[!sd];
+    inc |= llt[2][ksq] & pieces[2] & sides[!sd];
+    inc |= llt[3][ksq] & pieces[3] & sides[!sd];
+    inc |= llt[4][ksq] & pieces[4] & sides[!sd];
+    inc |= plt[sd][ksq] & pieces[5] & sides[!sd];
+
+    //phasma = inc;
+
+    return inc; 
+}
+
+
+Position::Position(){
+    for (int i = 0; i < 6; i++){
+        for (int j = 0; j < 64; j++){
+            mps[i][j] += matVals[i];
+            eps[i][j] += matVals[i];
+        }
+    }
+    setStartPos();
+}
 
 void Position::setStartPos(){
     sides[0] = 0xFFFFULL;
@@ -81,8 +179,17 @@ void Position::setStartPos(){
     toMove = true;
     gamePhase = 64;
     thm = 0; chm[thm] = 0;
+    zhist[0] = 0x205E74FA7ED216FEULL;
+    //beginZobristHash();
+}
 
-    //zhist[0] = 0x6344017539DA3DCBULL;
+void Position::eraseHistoryTable(){
+    for (int i = 0; i < 6; i++){
+        for (int j = 0; j < 64; j++){
+            historyTable[0][i][j] = -(1 << 25);
+            historyTable[1][i][j] = -(1 << 25);
+        }
+    }
 }
 
 int Position::fullMoveGen(int ply, bool cpex){
@@ -106,6 +213,8 @@ int Position::fullMoveGen(int ply, bool cpex){
         bool prmt = (1ULL << f) & 0xFF000000000000FF; //determine promotion
         moves[ply][totalMoves] |= ((10U ^ (13U * prmt)) << 19); //brancless set promotion bits
 
+        mprior[ply][totalMoves] = historyTable[toMove][5][f];
+
         moves[ply][totalMoves] |= (toMove << 23); //set color bit
         pshtrgt ^= (1ULL << f); //pop out bit
         totalMoves++;
@@ -120,7 +229,8 @@ int Position::fullMoveGen(int ply, bool cpex){
             moves[ply][totalMoves] = f; //write in start
             moves[ply][totalMoves] |= (p << 6); //write in end
 
-            for (int cc = 1; cc < 6; cc++){ //determine victim
+            int cc;
+            for (cc = 1; cc < 6; cc++){ //determine victim
                 if ((1ULL << p) & pieces[cc]){
                     moves[ply][totalMoves] |= (1U << 12);
                     moves[ply][totalMoves] |= (cc << 13);
@@ -133,6 +243,8 @@ int Position::fullMoveGen(int ply, bool cpex){
             bool prmt = ((1ULL << p) & 0xFF000000000000FF); //cast promotion mask to bool
             moves[ply][totalMoves] |= ((10U ^ (13U * prmt)) << 19); //branchless set promotion bits
             moves[ply][totalMoves] |= (toMove << 23); //set color bits
+
+            mprior[ply][totalMoves] = (1 << 20) + 5 - (cc << 12);
             
             mvst ^= (1ULL << p); //pop out bit
             totalMoves++; //next
@@ -155,7 +267,8 @@ int Position::fullMoveGen(int ply, bool cpex){
                 moves[ply][totalMoves] = f; //input start and end squraes
                 moves[ply][totalMoves] |= (p << 6);
                 
-                for (int cc = 1; cc < 6; cc++){ //determine victim
+                int cc;
+                for (cc = 1; cc < 6; cc++){ //determine victim
                     if ((1ULL << p) & pieces[cc]){ 
                         moves[ply][totalMoves] |= (1U << 12);
                         moves[ply][totalMoves] |= (cc << 13);
@@ -166,6 +279,8 @@ int Position::fullMoveGen(int ply, bool cpex){
                 moves[ply][totalMoves] |= (ll << 16); //set bits
                 moves[ply][totalMoves] |= (ll << 20);
                 moves[ply][totalMoves] |= (toMove << 23);
+
+                mprior[ply][totalMoves] = (1 << 20) + ll - (cc << 12);
 
                 totalMoves++;
                 xset ^= (1ULL << p); //pop out
@@ -181,6 +296,8 @@ int Position::fullMoveGen(int ply, bool cpex){
                 moves[ply][totalMoves] |= (ll << 16); //set bits
                 moves[ply][totalMoves] |= (ll << 20);
                 moves[ply][totalMoves] |= (toMove << 23);
+
+                mprior[ply][totalMoves] = historyTable[toMove][ll][p];
 
                 totalMoves++;
                 mvst ^= (1ULL << p); //pop out
@@ -203,7 +320,8 @@ int Position::fullMoveGen(int ply, bool cpex){
             moves[ply][totalMoves] = f; //start and end squares
             moves[ply][totalMoves] |= (p << 6);
 
-            for (int cc = 1; cc < 6; cc++){ //find victim
+            int cc;
+            for (cc = 1; cc < 6; cc++){ //find victim
                 if ((1ULL << p) & pieces[cc]){
                     moves[ply][totalMoves] |= (1U << 12);
                     moves[ply][totalMoves] |= (cc << 13);
@@ -212,6 +330,8 @@ int Position::fullMoveGen(int ply, bool cpex){
             }
             moves[ply][totalMoves] |= 0x110000U; //set bits about piece type
             moves[ply][totalMoves] |= (toMove << 23);
+
+            mprior[ply][totalMoves] = (1 << 20) + 1 - (cc << 12);
 
             xset ^= (1ULL << p); //pop out bit
             totalMoves++;
@@ -225,6 +345,9 @@ int Position::fullMoveGen(int ply, bool cpex){
             moves[ply][totalMoves] |= (p << 6);
             moves[ply][totalMoves] |= 0x110000U;
             moves[ply][totalMoves] |= (toMove << 23);
+
+            mprior[ply][totalMoves] = historyTable[toMove][1][p];
+
             totalMoves++;
             mvst ^= (1ULL << p);
             //assert(totalMoves < 256);
@@ -243,13 +366,16 @@ int Position::fullMoveGen(int ply, bool cpex){
         moves[ply][totalMoves] = f; //set start/end bits
         moves[ply][totalMoves] |= (p << 6);
 
-        for (int cc = 1; cc < 6; cc++){ //locate victim and set bits
+        int cc;
+        for (cc = 1; cc < 6; cc++){ //locate victim and set bits
             if ((1ULL << p) & pieces[cc]){
                 moves[ply][totalMoves] |= (1U << 12);
                 moves[ply][totalMoves] |= (cc << 13);
                 break;
             }
         }
+
+        mprior[ply][totalMoves] = (1 << 20) + 0 - (cc << 12);
 
         moves[ply][totalMoves] |= (toMove << 23); //set side (everything else is 0)
         totalMoves++; //pop
@@ -262,6 +388,9 @@ int Position::fullMoveGen(int ply, bool cpex){
         moves[ply][totalMoves] = f;
         moves[ply][totalMoves] |= (p << 6);
         moves[ply][totalMoves] |= (toMove << 23);
+
+        mprior[ply][totalMoves] = historyTable[toMove][0][p];
+
         totalMoves++;
         mvst ^= (1ULL << p);
     }
@@ -270,42 +399,9 @@ int Position::fullMoveGen(int ply, bool cpex){
     return totalMoves;
 }
 
-bool Position::kingBare(){
-    bool b = (__builtin_popcountll(sides[0]) == 1);
-    bool w = (__builtin_popcountll(sides[1]) == 1);
-    return (toMove and !w and b) or (!toMove and w and !b);
-}
-
-bool Position::isChecked(bool sd){
-    uint64_t inc;
-    int ksq = __builtin_ctzll(sides[sd] & pieces[0]);
-    //std::cout << "kingSquare: ksq\n";
-    inc = llt[0][ksq] & pieces[0] & sides[!sd];
-    inc |= RookBoards[RookOffset[ksq] + _pext_u64((sides[0] | sides[1]), RookMasks[ksq])] 
-        & pieces[1] & sides[!sd];
-    inc |= llt[2][ksq] & pieces[2] & sides[!sd];
-    inc |= llt[3][ksq] & pieces[3] & sides[!sd];
-    inc |= llt[4][ksq] & pieces[4] & sides[!sd];
-    inc |= plt[sd][ksq] & pieces[5] & sides[!sd];
-
-    //phasma = inc;
-
-    return inc; 
-}
-
-int Position::countReps(){
-    int rind = thm;
-    int reps = 1;
-    do {
-        rind -= 2;
-        reps += (zhist[thm] == zhist[rind]);
-    } while (chm[rind] and (rind >= 0));
-
-    return reps;
-}
-
 void Position::beginZobristHash(){
-    zhist[thm] = 0ULL; chm[thm] = thm;
+    zhist[thm] = toMove * ztk; 
+    chm[thm] = thm;
 
     Bitboard tpbd;
     int f;
@@ -324,19 +420,24 @@ void Position::beginZobristHash(){
             tpbd ^= (1ULL << f);
         }
     }
-
 }
 
-void Position::showZobrist(std::ostream& ou){
-    for (int j = 0; j < thm + 1; j++){
-        ou << "ZH " << j << ": " << zhist[j] << "\tIndex: " << (zhist[j] & 0xFFFFF) << '\n';
-    }
+int Position::countReps(){    
+    int rind = thm;
+    int reps = 1;
+    do {
+        rind -= 2;
+        reps += (zhist[thm] == zhist[rind]);
+    } while (chm[rind] and (rind >= 0));
+
+    return reps;
 }
 
-void Position::makemove(Move move){
+void Position::makeMove(Move move, bool ev){
     uint8_t stsq = move & 0x3FU; uint8_t edsq = (move >> 6) & 0x3FU; //start square, end square
     uint8_t tpmv = (move >> 16) & 7U; uint8_t tpnd = (move >> 20) & 7U; //typeMoved, typeEnded
     bool capt = (move >> 12) & 1U; uint8_t cptp = (move >> 13) & 7U; //capturing, capturetype
+
     //color = toMove 
 
     //deal with captured piece
@@ -359,14 +460,29 @@ void Position::makemove(Move move){
     zhist[thm] = zhist[thm - 1] ^ zFactor;
     chm[thm] = (capt or (tpmv == 5)) * (chm[thm - 1] + 1);
 
+    if (ev){
+        int psb = mps[tpnd][edsq ^ (!toMove * 56)] - mps[tpmv][stsq ^ (!toMove * 56)];
+        int csb = capt * mps[cptp][edsq ^ (toMove * 56)];
+
+        scores[toMove] += psb;
+        scores[!toMove] -= csb;
+
+        psb = eps[tpnd][edsq ^ (!toMove * 56)] - eps[tpmv][stsq ^ (!toMove * 56)];
+        csb = capt * eps[cptp][edsq ^ (toMove * 56)];
+
+        eScores[toMove] += psb;
+        eScores[!toMove] -= csb;        
+    }
+
     toMove = !toMove;
 }
 
-void Position::unmakemove(Move move){
-    //when unmaking a move, color that played is !toMove
+void Position::unmakeMove(Move move, bool ev){
     uint8_t stsq = move & 0x3FU; uint8_t edsq = (move >> 6) & 0x3FU; //start square, end square
     uint8_t tpmv = (move >> 16) & 7U; uint8_t tpnd = (move >> 20) & 7U; //typeMoved, typeEnded
     bool capt = (move >> 12) & 1U; uint8_t cptp = (move >> 13) & 7U; //capturing, capturetype
+
+    //color = !toMove
 
     pieces[tpmv] ^= (1ULL << stsq); //move the piece
     pieces[tpnd] ^= (1ULL << edsq);
@@ -377,44 +493,36 @@ void Position::unmakemove(Move move){
     sides[toMove] ^= ((Bitboard) capt * (1ULL << edsq)); //update opps board
 
     gamePhase -= (((move >> 19) & 1U) - phases[cptp]);
-
     thm--;
+
+    if (ev){
+        int psb = mps[tpnd][edsq ^ (toMove * 56)] - mps[tpmv][stsq ^ (toMove * 56)];
+        int csb = capt * mps[cptp][edsq ^ (!toMove * 56)];
+
+        scores[!toMove] -= psb;
+        scores[toMove] += csb;
+
+        psb = eps[tpnd][edsq ^ (toMove * 56)] - eps[tpmv][stsq ^ (toMove * 56)];
+        csb = capt * eps[cptp][edsq ^ (!toMove * 56)];
+
+        eScores[!toMove] -= psb;
+        eScores[toMove] += csb;
+    }
+
     toMove = !toMove;
 }
 
-std::string Position::moveToAlgebraic(Move& move){
-    uint8_t start = move & 63U;
-    uint8_t end = (move >> 6) & 63U;
-
-    std::string result;
-
-    result += ((start & 7) + 97);
-    result += (8 - (start >> 3)) + 48;
-
-    result += ((end & 7) + 97);
-    result += (8 - (end >> 3)) + 48;
-
-    if ((move >> 19) & 1U) {
-        result += 'q';
-    }
-
-    return result;
+void Position::passMove(){
+    //null move
+    toMove = !toMove;
+    thm++;
+    zhist[thm] = zhist[thm - 1] ^ ztk;
+    chm[thm] = chm[thm - 1] + 1;
 }
 
-void Position::printMoveAsBinary(Move move, std::ostream& ou){
-    int spaces[8] = {25, 19, 18, 15, 12, 11, 8, 7};
-
-    std::bitset<32> mb(move);
-    for (int i = 0; i < 32; i++){
-        ou << mb[31 - i];
-        for (int j : spaces){
-            if (i == j){
-                ou << ' ';
-                break;
-            }
-        }
-    }
-    ou << '\n';
+void Position::unpassMove(){
+    toMove = !toMove;
+    thm--;
 }
 
 uint64_t Position::perft(int depth, int ply){
@@ -425,7 +533,7 @@ uint64_t Position::perft(int depth, int ply){
 
     int nm = fullMoveGen(ply, false);
     for (int i = 0 ; i < nm; i++){
-        makemove(moves[ply][i]);
+        makeMove(moves[ply][i], false);
         
         //exStream << "\nconsidering @ ply " << ply << ": " << moveToAlgebraic(moves[ply][i]);
         //exStream << "\ndec: " << moves[ply][i] << '\n';
@@ -439,7 +547,7 @@ uint64_t Position::perft(int depth, int ply){
             //printAsBitboard(phasma, exStream);
             //printAllBitboards(exStream);
 
-            unmakemove(moves[ply][i]);
+            unmakeMove(moves[ply][i], false);
             continue;
         }
         uint64_t additional = perft(depth - 1, ply + 1);
@@ -449,7 +557,7 @@ uint64_t Position::perft(int depth, int ply){
             //std::cout << "dec: " << moves[ply][i] << '\n';
         }
         pnodes += additional;
-        unmakemove(moves[ply][i]);
+        unmakeMove(moves[ply][i], false);
 
         //exStream << "unmade " << moveToAlgebraic(moves[ply][i]) << '\n';
         //printAllBitboards(exStream);
@@ -459,11 +567,29 @@ uint64_t Position::perft(int depth, int ply){
     return pnodes;
 }
 
+std::string Position::makeOpening(int toMake){
+    int ni;
+    for (int i = 0; i < toMake; i++){
+        ni = rand() % fullMoveGen(0, 0);
+        makeMove(moves[0][ni], false);
+        if (isChecked(!toMove)){
+            unmakeMove(moves[0][ni], false);
+            i--;
+        }
+    }
+
+    return makeFen();
+}
+
+bool Position::getSide(){ return toMove; }
+
+int Position::halfMoveCount(){ return chm[thm]; }
+
 void Position::sendMove(std::string expr){
     int aux = fullMoveGen(0, 0);
     for (int i = 0; i < aux; i++){
         if (moveToAlgebraic(moves[0][i]) == expr){
-            makemove(moves[0][i]);
+            makeMove(moves[0][i], false);
             break;
         }
     }
@@ -527,65 +653,68 @@ void Position::readFen(std::string fen){
     }
 }
 
-void Position::printAsBitboard(Bitboard bb, std::ostream& ou){
-    std::bitset<64> bset(bb);
-    for (int i = 0; i < 64; i++){
-        ou << bset[i];
-        if ((i & 7) == 7){
-            ou << '\n';
-        }
-    }
+std::string Position::makeFen(){
+	uint64_t occ = sides[0] | sides[1];
+	std::string result = "";
 
-    ou << '\n';
+	uint64_t squarebb;
+
+	int emptyCount;
+
+	for (int i = 0; i < 8; i++){ //for each of 8 rows
+		emptyCount = 0;
+		for (int j = 0; j < 8; j++){ //for each square in each row
+			squarebb = 1ULL << (8 * i + j);
+
+			//std::cout << "Considering Square: " << 8 * i + j << '\n';
+
+			if (squarebb & occ){ //if landed on occupied space
+				//std::cout << "Intersection Found\n";
+				if (emptyCount != 0){ //unload stored empty squares
+					result += emptyCount + 48;
+					emptyCount = 0;
+					//std::cout << "Unloaded Empty Squares\n";
+				}
+
+                /*
+				for (int k = 0; k < 14; k++){ //find it by looping through bitboards
+					if (squarebb & pieces[k]){ //if found which bb has it
+						result += names[k]; //append label to FEN
+						//std::cout << "Found " << names[k] << '\n';
+						break;
+					}
+				}
+                */
+                for (int k = 0; k < 6; k++){
+                    if (squarebb & pieces[k] & sides[1]){
+                        result += names[k + 7];
+                    }
+                    if (squarebb & pieces[k] & sides[0]){
+                        result += names[k];
+                    }
+                }
+
+				emptyCount = 0; //no longer empty
+			} else { //otherwise, count as empty square
+				emptyCount++;
+				//std::cout << "Is Empty Square\n";
+			}
+		}
+		if (emptyCount != 0){
+			result += emptyCount + 48;
+		}
+		if (i != 7){
+			result += '/';
+		}
+	}
+
+	result += ' ';
+	result += (toMove ? 'w' : 'b');
+	result += " - - ";
+	result += std::to_string(chm[thm]);
+	result += " 1";
+
+	return result;
 }
-
-void Position::printAllBitboards(std::ostream& ou){
-    std::bitset<64> seta(sides[0]); std::bitset<64> setb(sides[1]);
-    ou << "sides[0] (black)\tsides[1] (white)\n";
-    for (int i = 0; i < 8; i++){
-        for (int j = 0; j < 8; j++){
-            ou << seta[(i << 3) + j];
-        }
-        ou << "\t\t";
-        for (int j = 0; j < 8; j++){
-            ou << setb[(i << 3) + j];
-        }
-        ou << '\n';
-    }
-
-    std::bitset<64> bds[6];
-    for (int a = 0; a < 6; a++){
-        bds[a] = std::bitset<64>(pieces[a]);
-    }
-
-    ou << "\n\npieces[0]\tpieces[1]\tpieces[2]\tpieces[3]\tpieces[4]\tpieces[5]\n";
-    for (int i = 0; i < 8; i++){
-        for (int k = 0; k < 6; k++){
-            for (int j = 0; j < 8; j++){
-                ou << bds[k][(i << 3) + j];
-            }
-            ou << '\t';
-        }
-        ou << '\n';
-    }
-    ou << '\n';
-    ou << "wasChecked: " << isChecked(!toMove) << '\n';
-    ou << "isChecked: " << isChecked(toMove) << '\n';
-    ou << "toMove: " << toMove << "\n\n";
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
