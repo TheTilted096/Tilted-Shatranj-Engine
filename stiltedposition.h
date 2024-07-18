@@ -23,6 +23,14 @@ class Position : public Bitboards{
         static uint64_t zpk[2][6][64];
         static uint64_t ztk;
 
+        static constexpr char posChars[21] = 
+        {'/', '1', '2', '3', '4', '5', '6', '7', '8',
+            'k', 'r', 'n', 'q', 'b', 'p', 'K', 'R', 'N', 'Q', 'B', 'P'};
+
+        static constexpr char names[14] = 
+        {'k', 'r', 'n', 'q', 'b', 'p', 'x',
+			'K', 'R', 'N', 'Q', 'B', 'P', 'X'};
+
         int mps[6][64] = 
         {{-38, -55, -15, -5, -5, -15, -25, -35, 
         -55, -18, 15, 15, 15, 15, 5, -25, 

@@ -16,7 +16,7 @@ int Position::evaluateScratch(){
 
     for (int i = 0; i < 6; i++){
         g = -1;
-        wtb = pieces[i + 7];
+        wtb = pieces[i] & sides[1];
         while (wtb){
             f = __builtin_ctzll(wtb);
             g += (f + 1);
@@ -29,7 +29,7 @@ int Position::evaluateScratch(){
         }
 
         g = -1;
-        btb = pieces[i];
+        btb = pieces[i] & sides[0];
         while (btb){
             f = __builtin_ctzll(btb);
             g += (f + 1);
@@ -52,7 +52,7 @@ int Position::evaluate(){
     int mdiff = scores[toMove] - scores[!toMove];
     int ediff = eScores[toMove] - eScores[!toMove];
 
-    return (mdiff * inGamePhase + ediff * (64 - inGamePhase)) / 64;
+    return (mdiff * inGamePhase + ediff * (Position::totalGamePhase - inGamePhase)) / Position::totalGamePhase;
 }
 
 
@@ -419,10 +419,8 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
 }
 
 int Engine::search(uint32_t thinkTime, int mdepth, uint64_t maxNodes, bool output){
-    uint64_t oPos[14]; bool oMove = toMove; int othm = thm;
-    for (int i = 0; i < 14; i++){
-        oPos[i] = pieces[i];
-    }
+    Bitboard oPos[8] = {sides[0], sides[1], pieces[0], pieces[1], pieces[2], pieces[3], pieces[4], pieces[5]};
+    bool oMove = toMove; int othm = thm;
 
     int alpha = -50000;
     int beta = 50000;
@@ -485,13 +483,14 @@ int Engine::search(uint32_t thinkTime, int mdepth, uint64_t maxNodes, bool outpu
         std::cout << "bestmove " << moveToAlgebraic(bestMove) << '\n';
     }
 
-    for (int i = 0; i < 14; i++){
-        pieces[i] = oPos[i];
-    }
+    sides[0] = oPos[0]; sides[1] = oPos[1];
+    pieces[0] = oPos[2]; pieces[1] = oPos[3]; pieces[2] = oPos[4]; 
+    pieces[3] = oPos[5]; pieces[4] = oPos[6]; pieces[5] = oPos[7];
+
     thm = othm; toMove = oMove;
-    nodes = 0;
+    nodes = 0ULL;
     thinkLimit = 0xFFFFFFFF;
-    mnodes=~0ULL;
+    mnodes = ~0ULL;
 
     /*
     int extraMoves = fullMoveGen(0, 0);

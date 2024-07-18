@@ -14,7 +14,7 @@ int main(){
 
     Engine engine;
 
-    std::string versionID = "Tilted Shatranj 26-zfix";
+    std::string versionID = "Tilted Shatranj 26-attempt";
     std::string command, param;
 
     std::cout << "0000000000    0000000000    00            0000000000    0000000000    000000  \n";
