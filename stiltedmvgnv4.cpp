@@ -65,30 +65,24 @@ bool Bitboards::ownKingBare(){
 }
 
 bool Bitboards::isChecked(){  // checks if the opposing side is left in check; called after makeMove
-    uint64_t phantomSet;
-    int kingSquare = __builtin_ctzll(sides[!toMove] & pieces[0]);
-    //! toMove = friends, toMove = enemy
+    Bitboard inc;
+    int ksq = __builtin_ctzll(sides[!toMove] & pieces[0]);
 
-    // rook checks
-    phantomSet = hyperbolaQuintessence(kingSquare);
-    phantomSet |= ((uint64_t)hlt[kingSquare & 7][((((RANK0 << ((kingSquare & 56))) & (sides[0] | sides[1])) >> (kingSquare & 56)) >> 1) & 63])
-                  << (kingSquare & 56);         // rook moveset
-    if (phantomSet & pieces[1] & sides[toMove]) {  // if intersects with opp rooks, in check
-        return true;
-    }
+    Bitboard rookSet = hyperbolaQuintessence(ksq);
+    rookSet |= ((uint64_t)hlt[ksq & 7][((((RANK0 << ((ksq & 56))) & (sides[0] | sides[1])) >> (ksq & 56)) >> 1) & 63])
+                  << (ksq & 56); 
 
-    // pawn checks
-    if (plt[!toMove][kingSquare] & pieces[5] & sides[toMove]) {
-        return true;
-    }
+    //std::cout << "kingSquare: ksq\n";
+    inc = llt[0][ksq] & pieces[0] & sides[toMove];
+    inc |= rookSet & pieces[1] & sides[toMove];
+    inc |= llt[2][ksq] & pieces[2] & sides[toMove];
+    inc |= llt[3][ksq] & pieces[3] & sides[toMove];
+    inc |= llt[4][ksq] & pieces[4] & sides[toMove];
+    inc |= plt[!toMove][ksq] & pieces[5] & sides[toMove];
 
-    int leapers[4] = {2, 3, 0, 4};
-    for (int ll : leapers) {
-        if (llt[ll][kingSquare] & pieces[ll] & sides[toMove]) {
-            return true;
-        }
-    }
-    return false;
+    //phasma = inc;
+
+    return inc; 
 }
 
 void Bitboards::printAllBitboards(){
@@ -131,28 +125,19 @@ uint64_t Bitboards::hyperbolaQuintessence(int& square){
     return forward;
 }
 
+Position::Position(){
+    for (int i = 0; i < 6; i++) {
+        for (int j = 0; j < 64; j++) {
+            mps[i][j] += matVals[i];
+            eps[i][j] += matVals[i];
 
-
-
-
-
-
-uint64_t Position::zpk[2][6][64];
-uint64_t Position::ztk;
-
-void Position::initZobristKeys(){
-    //Zobrist Hash Initialize
-    uint64_t zsd = 0xDE92F5AD5A5EAD57;
-
-    std::mt19937_64 mt{zsd}; //0xDE92F5AD5A5EAD57
-    for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < 6; j++) {
-            for (int k = 0; k < 64; k++) {
-                zpk[i][j][k] = mt();
-            }
+            historyTable[0][i][j] = 0;
+            historyTable[1][i][j] = 0;
         }
     }
-    ztk = mt();
+    setStartPos();
+    beginZobristHash();
+    nodes = 0ULL;
 }
 
 void Position::beginZobristHash(){
@@ -395,10 +380,8 @@ void Position::makeMove(Move move, bool ev){
 
     bool color = (move >> 23);
 
-    if (capturing) {                                                // if capturing
-        pieces[captureType] ^= (1ULL << endsquare);  // remove the captured piece from its square
-        sides[!color] ^= (1ULL << endsquare);            // update the location of opp's pieces by removing the victim's bit
-    }
+    pieces[captureType] ^= capturing * (1ULL << endsquare); // remove the captured piece from its square
+    sides[!color] ^= capturing * (1ULL << endsquare); // update the location of opp's pieces by removing the victim's bit
 
     sides[color] ^= ((1ULL << startsquare) | (1ULL << endsquare));  // update location of own pieces
     pieces[typeMoved] ^= (1ULL << startsquare);                  // remove piece its starting square & type
@@ -415,17 +398,13 @@ void Position::makeMove(Move move, bool ev){
     uint64_t zFactor = 0;
     zFactor ^= zpk[toMove][typeMoved][startsquare];
     zFactor ^= zpk[toMove][typeEnded][endsquare];
-    if (capturing) {
-        zFactor ^= zpk[!toMove][captureType][endsquare];
-    }
+
+    zFactor ^= capturing * zpk[!toMove][captureType][endsquare];
+    
     zFactor ^= ztk;
     zhist[thm] = zhist[thm - 1] ^ zFactor;
 
-    if (capturing or (typeMoved == 5)) {
-        chm[thm] = 0;
-    } else {
-        chm[thm] = chm[thm - 1] + 1;
-    }
+    chm[thm] = !(capturing or (typeMoved == 5)) * (chm[thm - 1] + 1);
 
     if (ev) {
         int psb = mps[typeEnded][endsquare ^ (!color * 56)] - mps[typeMoved][startsquare ^ (!color * 56)];
@@ -456,14 +435,12 @@ void Position::unmakeMove(Move move, bool ev){
 
     bool color = (move >> 23);
 
-    if (capturing) {                                                // if capturing
-        pieces[captureType] ^= (1ULL << endsquare);  // remove the captured piece from its square
-        sides[!color] ^= (1ULL << endsquare);            // update the location of opp's pieces by removing the victim's bit
-    }
-
     sides[color] ^= ((1ULL << startsquare) | (1ULL << endsquare));  // update location of own pieces
     pieces[typeMoved] ^= (1ULL << startsquare);                  // remove piece its starting square & type
     pieces[typeEnded] ^= (1ULL << endsquare);                    // place the piece on its ending square & type
+
+    pieces[captureType] ^= capturing * (1ULL << endsquare);
+    sides[!color] ^= capturing * (1ULL << endsquare);
 
     // increment inGamePhase
     // std::cout << "before " << moveToAlgebraic(move) << "inGamePhase: " << inGamePhase << '\n';
@@ -471,7 +448,6 @@ void Position::unmakeMove(Move move, bool ev){
     // std::cout << "after " << moveToAlgebraic(move) << "inGamePhase: " << inGamePhase << '\n';
 
     thm--;
-
 
     if (ev) {
         int psb = mps[typeEnded][endsquare ^ (!color * 56)] - mps[typeMoved][startsquare ^ (!color * 56)];

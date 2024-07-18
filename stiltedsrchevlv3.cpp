@@ -97,19 +97,7 @@ void TTentry::print(){
 
 
 Engine::Engine(){
-    for (int i = 0; i < 6; i++) {
-        for (int j = 0; j < 64; j++) {
-            mps[i][j] += matVals[i];
-            eps[i][j] += matVals[i];
-
-            historyTable[0][i][j] = 0;
-            historyTable[1][i][j] = 0;
-        }
-    }
-    setStartPos();
-    beginZobristHash();
     mnodes= ~0ULL;
-    nodes = 0;
     
     thinkLimit = 0xFFFFFFFF;
     moment = std::chrono::steady_clock::now();
