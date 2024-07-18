@@ -9,10 +9,10 @@ class TTentry{
         int enType;
         int eDepth;
         uint32_t eMove;
-        uint64_t* zhist;
+        uint64_t* zref;
 
         TTentry();
-        TTentry(uint64_t[]);
+        void setReference(uint64_t*);
         void update(int&, int, int&, uint32_t, int);
         void reset();
         void print();
@@ -33,6 +33,7 @@ class Engine : public Position{
     uint32_t killers[64][2];
     int numKillers[64];
 
+    bool timeKept;
     int64_t thinkLimit; //think time limit
     std::chrono::_V2::steady_clock::time_point moment;
     
@@ -40,6 +41,9 @@ class Engine : public Position{
 
     bool isInteresting(uint32_t&, bool);
     void eraseTransposeTable();
+    void eraseKillers();
+
+    void sortMoves(int, int);
     int alphabeta(int, int, int, int, bool);
 
         double rfpCoef[2] = {3.0, 67.0};

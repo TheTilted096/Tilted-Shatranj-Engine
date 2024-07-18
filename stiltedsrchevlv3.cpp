@@ -11,34 +11,35 @@ int Position::evaluateScratch(){
     scores[1] = 0; scores[0] = 0;
     eScores[1] = 0; eScores[0] = 0;
 
-    uint64_t wtb, btb;
-    int f, g;
+    //kings
+    scores[1] += mps[0][__builtin_ctzll(sides[1] & pieces[0])];
+    eScores[1] += eps[0][__builtin_ctzll(sides[1] & pieces[0])];
 
-    for (int i = 0; i < 6; i++){
-        g = -1;
-        wtb = pieces[i] & sides[1];
-        while (wtb){
-            f = __builtin_ctzll(wtb);
-            g += (f + 1);
+    scores[0] += mps[0][56 ^ __builtin_ctzll(sides[0] & pieces[0])];
+    eScores[0] += eps[0][56 ^ __builtin_ctzll(sides[0] & pieces[0])];
 
-            scores[1] += mps[i][g];
-            eScores[1] += eps[i][g];
+    Bitboard tpbd;
+    int f;
 
-            wtb >>= f;
-            wtb >>= 1;
+    for (int i = 1; i < 6; i++){
+        tpbd = pieces[i] & sides[1];
+        while (tpbd){
+            f = __builtin_ctzll(tpbd);
+
+            scores[1] += mps[i][f];
+            eScores[1] += eps[i][f];
+
+            tpbd ^= (1ULL << f);
         }
 
-        g = -1;
-        btb = pieces[i] & sides[0];
-        while (btb){
-            f = __builtin_ctzll(btb);
-            g += (f + 1);
+        tpbd = pieces[i] & sides[0];
+        while (tpbd){
+            f = __builtin_ctzll(tpbd);
 
-            scores[0] += mps[i][56 ^ g];
-            eScores[0] += eps[i][56 ^ g];
+            scores[0] += mps[i][56 ^ f];
+            eScores[0] += eps[i][56 ^ f];
 
-            btb >>= f;
-            btb >>= 1;
+            tpbd ^= (1ULL << f);
         }
     }
 
@@ -62,7 +63,7 @@ TTentry::TTentry(){
     eScore = -29501;
     eHash = 0; enType = -1;
     eDepth = -1; eMove = 0;
-    zhist = nullptr;
+    zref = nullptr;
 }
 
 void TTentry::reset(){
@@ -71,19 +72,16 @@ void TTentry::reset(){
     eDepth = -1; eMove = 0;
 }
 
-TTentry::TTentry(uint64_t t[]){
-    eScore = -29501;
-    eHash = 0; enType = -1;
-    eDepth = -1; eMove = 0;
-    zhist = t;
+void TTentry::setReference(uint64_t* zr){
+    zref = zr;
 }
 
-void TTentry::update(int& sc, int nt, int& d, uint32_t dm, int thm){
-    if ((d >= eDepth) or (zhist[thm] != eHash)){
+void TTentry::update(int& sc, int nt, int& d, Move dm, int thm){
+    if ((d >= eDepth) or (zref[thm] != eHash)){
         eScore = sc;
         enType = nt;
         eDepth = d;
-        eHash = zhist[thm];
+        eHash = zref[thm];
         eMove = dm;
     }
 }
@@ -95,7 +93,6 @@ void TTentry::print(){
 }
 
 
-
 Engine::Engine(){
     mnodes= ~0ULL;
     
@@ -104,7 +101,7 @@ Engine::Engine(){
 
     ttable = new TTentry[0x100000];
     for (int i = 0; i < 0x100000; i++){
-        ttable[i] = TTentry(zhist);
+        ttable[i].setReference(zhist);
     }
 
     for (int i = 1; i < 64; i++){
@@ -135,7 +132,7 @@ void Engine::showZobrist(){
 }
 
 void Engine::endHandle(){
-    if ((nodes % 2000 == 0) and 
+    if ((nodes % 2000 == 0) and timeKept and
             (std::chrono::duration_cast<std::chrono::milliseconds>
                 (std::chrono::steady_clock::now() - moment).count() >= thinkLimit)){
         throw "Time Expired\n";
@@ -150,6 +147,13 @@ void Engine::eraseTransposeTable(){
         if (ttable[i].enType != -1){
             ttable[i].reset();
         }
+    }
+}
+
+void Engine::eraseKillers(){
+    for (int i = 0; i < 64; i++){
+        killers[i][0] = 0U;
+        killers[i][1] = 0U;
     }
 }
 
@@ -169,6 +173,8 @@ void Engine::newGame(){
     setStartPos();
     beginZobristHash();
     eraseTransposeTable();
+    eraseHistoryTable();
+    eraseKillers();
 }
 
 bool Engine::isInteresting(uint32_t& move, bool checked){
@@ -177,6 +183,26 @@ bool Engine::isInteresting(uint32_t& move, bool checked){
     toMove = !toMove;
 
     return ((move >> 12) & 1U) or ((move >> 19) & 1U) or giveCheck or checked;
+}
+
+void Engine::sortMoves(int nc, int ply){
+    int keyVal;
+    Move keyMove;
+
+    int j;
+    for (int i = 1; i < nc; i++){
+        keyVal = mprior[ply][i];
+        keyMove = moves[ply][i];
+        j = i - 1;
+        while ((j >= 0) and (mprior[ply][j] > keyVal)){
+            mprior[ply][j + 1] = mprior[ply][j];
+            moves[ply][j + 1] = moves[ply][j];
+            j--;
+        }
+
+        mprior[ply][j + 1] = keyVal;
+        moves[ply][j + 1] = keyMove;
+    }
 }
 
 int Engine::quiesce(int alpha, int beta, int lply){
@@ -198,12 +224,8 @@ int Engine::quiesce(int alpha, int beta, int lply){
         mprior[64 + lply][ii] = ((moves[64 + lply][ii] >> 16) & 7) * (-1); //less valuable = better (-a)
         mprior[64 + lply][ii] += (10 * ((moves[64 + lply][ii] >> 13) & 7)); //10v
     }
-    for (int aa = 1; aa < nc; aa++){ //insertion sort
-        for (int bb = aa; (bb > 0) and (mprior[64 + lply][bb - 1] > mprior[64 + lply][bb]); bb--){
-            std::swap(moves[64 + lply][bb - 1], moves[64 + lply][bb]);
-            std::swap(mprior[64 + lply][bb - 1], mprior[64 + lply][bb]);
-        }
-    }
+
+    sortMoves(nc, 64 + lply);
 
     for (int i = 0; i < nc; i++){
         makeMove(moves[64 + lply][i], true);
@@ -300,12 +322,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
         }
     }
     
-    for (int ii = 1; ii < numMoves; ii++){
-        for (int jj = ii; (jj > 0) and (mprior[ply][jj - 1] > mprior[ply][jj]); jj--){
-            std::swap(moves[ply][jj], moves[ply][jj - 1]);
-            std::swap(mprior[ply][jj], mprior[ply][jj - 1]);
-        }
-    }
+    sortMoves(numMoves, ply);
 
     for (int kk = ply + 1; kk < 64; kk++){
         numKillers[kk] = 0;
@@ -409,6 +426,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
 int Engine::search(uint32_t thinkTime, int mdepth, uint64_t maxNodes, bool output){
     Bitboard oPos[8] = {sides[0], sides[1], pieces[0], pieces[1], pieces[2], pieces[3], pieces[4], pieces[5]};
     bool oMove = toMove; int othm = thm;
+    timeKept = ~thinkTime;
 
     int alpha = -50000;
     int beta = 50000;
