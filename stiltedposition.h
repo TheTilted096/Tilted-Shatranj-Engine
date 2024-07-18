@@ -141,7 +141,11 @@ class Position : public Bitboards{
         int fullMoveGen(int, bool);
         uint64_t perft(int, int);
 
-        void makeMove(uint32_t, bool, bool);
+        void makeMove(Move, bool);
+        void unmakeMove(Move, bool);
+        void passMove();
+        void unpassMove();
+
         void sendMove(std::string);
 
         void eraseHistoryTable();

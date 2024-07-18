@@ -396,19 +396,7 @@ int Position::fullMoveGen(int ply, bool capsOnly){
     return totalNumMoves;
 }
 
-void Position::makeMove(uint32_t move, bool forward, bool ev){
-    if (move == 0) {
-        toMove = !toMove;
-        if (forward) {
-            thm++;
-            zhist[thm] = zhist[thm - 1] ^ ztk;
-            chm[thm] = chm[thm - 1] + 1;
-        } else {
-            thm--;
-        }
-        return;
-    }
-
+void Position::makeMove(Move move, bool ev){
     uint8_t startsquare = move & 63U;
     uint8_t endsquare = (move >> 6) & 63U;
 
@@ -431,46 +419,101 @@ void Position::makeMove(uint32_t move, bool forward, bool ev){
 
     // increment gamephase
     // std::cout << "before " << moveToAlgebraic(move) << "gamephase: " << inGamePhase << '\n';
-    inGamePhase += (((move >> 19) & 1U) - phases[captureType]) * (2 * forward - 1);
+    inGamePhase += (((move >> 19) & 1U) - phases[captureType]);
     // std::cout << "after " << moveToAlgebraic(move) << "gamephase: " << inGamePhase << '\n';
 
-    if (forward) {
-        nodes++;
-        thm++;  // increment totalHalfMoves
+    nodes++;
+    thm++;  // increment totalHalfMoves
 
-        uint64_t zFactor = 0;
-        zFactor ^= zpk[toMove][typeMoved][startsquare];
-        zFactor ^= zpk[toMove][typeEnded][endsquare];
-        if (capturing) {
-            zFactor ^= zpk[!toMove][captureType][endsquare];
-        }
-        zFactor ^= ztk;
-        zhist[thm] = zhist[thm - 1] ^ zFactor;
+    uint64_t zFactor = 0;
+    zFactor ^= zpk[toMove][typeMoved][startsquare];
+    zFactor ^= zpk[toMove][typeEnded][endsquare];
+    if (capturing) {
+        zFactor ^= zpk[!toMove][captureType][endsquare];
+    }
+    zFactor ^= ztk;
+    zhist[thm] = zhist[thm - 1] ^ zFactor;
 
-        if (capturing or (typeMoved == 5)) {
-            chm[thm] = 0;
-        } else {
-            chm[thm] = chm[thm - 1] + 1;
-        }
+    if (capturing or (typeMoved == 5)) {
+        chm[thm] = 0;
     } else {
-        thm--;
+        chm[thm] = chm[thm - 1] + 1;
     }
 
     if (ev) {
         int psb = mps[typeEnded][endsquare ^ (!color * 56)] - mps[typeMoved][startsquare ^ (!color * 56)];
         int csb = capturing * mps[captureType][endsquare ^ (color * 56)];
 
-        scores[color] += (forward ? psb : -psb);
-        scores[!color] -= (forward ? csb : -csb);
+        scores[color] += psb;
+        scores[!color] -= csb;
 
         psb = eps[typeEnded][endsquare ^ (!color * 56)] - eps[typeMoved][startsquare ^ (!color * 56)];
         csb = capturing * eps[captureType][endsquare ^ (color * 56)];
 
-        eScores[color] += (forward ? psb : -psb);
-        eScores[!color] -= (forward ? csb : -csb);
+        eScores[color] += psb;
+        eScores[!color] -= csb;
     }
 
     toMove = !toMove;
+}
+
+void Position::unmakeMove(Move move, bool ev){
+    uint8_t startsquare = move & 63U;
+    uint8_t endsquare = (move >> 6) & 63U;
+
+    uint8_t typeMoved = (move >> 16) & (7U);
+    uint8_t typeEnded = (move >> 20) & (7U);
+
+    bool capturing = (move >> 12) & (1U);
+    uint8_t captureType = (move >> 13) & (7U);
+
+    bool color = (move >> 23);
+
+    pieces[7 * color + 6] ^= ((1ULL << startsquare) | (1ULL << endsquare));  // update location of own pieces
+    pieces[7 * color + typeMoved] ^= (1ULL << startsquare);                  // remove piece its starting square & type
+    pieces[7 * color + typeEnded] ^= (1ULL << endsquare);                    // place the piece on its ending square & type
+
+    if (capturing) {                                                // if capturing
+        pieces[7 * (!color) + captureType] ^= (1ULL << endsquare);  // remove the captured piece from its square
+        pieces[7 * (!color) + 6] ^= (1ULL << endsquare);            // update the location of opp's pieces by removing the victim's bit
+    }
+
+    // increment gamephase
+    // std::cout << "before " << moveToAlgebraic(move) << "gamephase: " << inGamePhase << '\n';
+    inGamePhase -= (((move >> 19) & 1U) - phases[captureType]);
+    // std::cout << "after " << moveToAlgebraic(move) << "gamephase: " << inGamePhase << '\n';
+
+    thm--;
+
+
+    if (ev) {
+        int psb = mps[typeEnded][endsquare ^ (!color * 56)] - mps[typeMoved][startsquare ^ (!color * 56)];
+        int csb = capturing * mps[captureType][endsquare ^ (color * 56)];
+
+        scores[color] -= psb;
+        scores[!color] += csb;
+
+        psb = eps[typeEnded][endsquare ^ (!color * 56)] - eps[typeMoved][startsquare ^ (!color * 56)];
+        csb = capturing * eps[captureType][endsquare ^ (color * 56)];
+
+        eScores[color] -= psb;
+        eScores[!color] += csb;
+    }
+
+    toMove = !toMove;
+}
+
+void Position::passMove(){
+    //null move
+    toMove = !toMove;
+    thm++;
+    zhist[thm] = zhist[thm - 1] ^ ztk;
+    chm[thm] = chm[thm - 1] + 1;
+}
+
+void Position::unpassMove(){
+    toMove = !toMove;
+    thm--;
 }
 
 uint64_t Position::perft(int depth, int ply){
@@ -480,9 +523,9 @@ uint64_t Position::perft(int depth, int ply){
     }
     int nm = fullMoveGen(ply, 0);
     for (int i = 0; i < nm; i++) {
-        makeMove(moves[ply][i], 1, 0);
+        makeMove(moves[ply][i], false);
         if (isChecked()) {
-            makeMove(moves[ply][i], 0, 0);
+            unmakeMove(moves[ply][i], false);
             continue;
         }
         uint64_t additional = perft(depth - 1, ply + 1);
@@ -493,7 +536,7 @@ uint64_t Position::perft(int depth, int ply){
         }
 
         pnodes += additional;
-        makeMove(moves[ply][i], 0, 0);
+        unmakeMove(moves[ply][i], false);
     }
     return pnodes;
 }
@@ -525,7 +568,7 @@ void Position::sendMove(std::string expr){
     int aux = fullMoveGen(0, 0);
     for (int i = 0; i < aux; i++){
         if (moveToAlgebraic(moves[0][i]) == expr){
-            makeMove(moves[0][i], 1, 0);
+            makeMove(moves[0][i], false);
             break;
         }
     }
@@ -538,9 +581,9 @@ std::string Position::makeRandMoves(int toMake){
     int ni;
     for (int i = 0; i < toMake; i++){
         ni = rand() % fullMoveGen(0, 0);
-        makeMove(moves[0][ni], 1, 0);
+        makeMove(moves[0][ni], false);
         if (isChecked()){
-            makeMove(moves[0][ni], 0, 0);
+            unmakeMove(moves[0][ni], false);
             i--;
         }
     }

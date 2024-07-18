@@ -218,15 +218,15 @@ int Engine::quiesce(int alpha, int beta, int lply){
     }
 
     for (int i = 0; i < nc; i++){
-        makeMove(moves[64 + lply][i], 1, 1);
+        makeMove(moves[64 + lply][i], true);
         endHandle();
         if (isChecked() or kingBare()){
-            makeMove(moves[64 + lply][i], 0, 1);
+            unmakeMove(moves[64 + lply][i], true);
             continue;
         }
 
         score = -quiesce(-beta, -alpha, lply + 1);
-        makeMove(moves[64 + lply][i], 0, 1); //take back the move
+        unmakeMove(moves[64 + lply][i], true); //take back the move
         
         if (score >= beta){
             return beta;
@@ -287,11 +287,11 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     //nmp disabled if both sides dont have material or there was nmp before
 
     if (nmp and (ply != 0) and (depth > 1)){
-        makeMove(0, 1, 1);
+        passMove();
         if (!isChecked()){
             score = -alphabeta(-beta, -alpha, depth - 2, ply + 1, nmp);
         }
-        makeMove(0, 0, 1);
+        unpassMove();
         if (score >= beta){
             return beta;
         }
@@ -333,12 +333,12 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     for (int i = 0; i < numMoves; i++){
         //std::cout << "considering: " << moveToAlgebraic(moves[ply][i]) << '\t' << mprior[ply][i] << '\n';
         //printMoveAsBinary(moves[ply][i]);
-        makeMove(moves[ply][i], 1, 1); 
+        makeMove(moves[ply][i], true); 
         endHandle();
 
         if (isChecked() or kingBare()){
             //std::cout << "check: " << moveToAlgebraic(moves[ply][i]) << '\n';
-            makeMove(moves[ply][i], 0, 1);
+            unmakeMove(moves[ply][i], true);
             continue;
         }
 
@@ -366,7 +366,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
         }
         
         //std::cout << "score: " << score << '\t' << moveToAlgebraic(moves[ply][i]) << '\n';
-        makeMove(moves[ply][i], 0, 1);
+        unmakeMove(moves[ply][i], true);
 
         if (score >= beta){ //beta cutoff, cut node (2)
             ttable[ttindex].update(score, 2, depth, moves[ply][i], thm);
