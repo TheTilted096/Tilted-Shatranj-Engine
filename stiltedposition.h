@@ -358,7 +358,7 @@ class Position : public Bitboards{
         void readFen(std::string);
         std::string makeFen();
 
-        std::string makeRandMoves(int);
+        std::string makeOpening(int);
 
         //static void initZobristKeys();
 };

@@ -144,32 +144,22 @@ void Position::beginZobristHash(){
     zhist[thm] = 0;
     chm[thm] = thm;
 
-    uint64_t wtb, btb;
-    int f, g;
+    Bitboard tpbd;
+    int f;
 
     for (int i = 0; i < 6; i++) {
-        g = -1;
-        wtb = pieces[i] & sides[1];
-        while (wtb) {
-            f = __builtin_ctzll(wtb);
-            g += (f + 1);
-
-            zhist[thm] ^= zpk[1][i][g];
-
-            wtb >>= f;
-            wtb >>= 1;
+        tpbd = pieces[i] & sides[1];
+        while (tpbd) {
+            f = __builtin_ctzll(tpbd);
+            zhist[thm] ^= zpk[1][i][f];
+            tpbd ^= (1ULL << f);
         }
 
-        g = -1;
-        btb = pieces[i] & sides[0];
-        while (btb) {
-            f = __builtin_ctzll(btb);
-            g += (f + 1);
-
-            zhist[thm] ^= zpk[0][i][g];
-
-            btb >>= f;
-            btb >>= 1;
+        tpbd = pieces[i] & sides[0];
+        while (tpbd) {
+            f = __builtin_ctzll(tpbd);
+            zhist[thm] ^= zpk[0][i][f];
+            tpbd ^= (1ULL << f);
         }
     }
 }
@@ -378,12 +368,12 @@ void Position::makeMove(Move move, bool ev){
     bool capturing = (move >> 12) & (1U);
     uint8_t captureType = (move >> 13) & (7U);
 
-    bool color = (move >> 23);
+    //bool color = (move >> 23);
 
     pieces[captureType] ^= capturing * (1ULL << endsquare); // remove the captured piece from its square
-    sides[!color] ^= capturing * (1ULL << endsquare); // update the location of opp's pieces by removing the victim's bit
+    sides[!toMove] ^= capturing * (1ULL << endsquare); // update the location of opp's pieces by removing the victim's bit
 
-    sides[color] ^= ((1ULL << startsquare) | (1ULL << endsquare));  // update location of own pieces
+    sides[toMove] ^= ((1ULL << startsquare) | (1ULL << endsquare));  // update location of own pieces
     pieces[typeMoved] ^= (1ULL << startsquare);                  // remove piece its starting square & type
     pieces[typeEnded] ^= (1ULL << endsquare);                    // place the piece on its ending square & type
 
@@ -407,17 +397,17 @@ void Position::makeMove(Move move, bool ev){
     chm[thm] = !(capturing or (typeMoved == 5)) * (chm[thm - 1] + 1);
 
     if (ev) {
-        int psb = mps[typeEnded][endsquare ^ (!color * 56)] - mps[typeMoved][startsquare ^ (!color * 56)];
-        int csb = capturing * mps[captureType][endsquare ^ (color * 56)];
+        int psb = mps[typeEnded][endsquare ^ (!toMove * 56)] - mps[typeMoved][startsquare ^ (!toMove * 56)];
+        int csb = capturing * mps[captureType][endsquare ^ (toMove * 56)];
 
-        scores[color] += psb;
-        scores[!color] -= csb;
+        scores[toMove] += psb;
+        scores[!toMove] -= csb;
 
-        psb = eps[typeEnded][endsquare ^ (!color * 56)] - eps[typeMoved][startsquare ^ (!color * 56)];
-        csb = capturing * eps[captureType][endsquare ^ (color * 56)];
+        psb = eps[typeEnded][endsquare ^ (!toMove * 56)] - eps[typeMoved][startsquare ^ (!toMove * 56)];
+        csb = capturing * eps[captureType][endsquare ^ (toMove * 56)];
 
-        eScores[color] += psb;
-        eScores[!color] -= csb;
+        eScores[toMove] += psb;
+        eScores[!toMove] -= csb;
     }
 
     toMove = !toMove;
@@ -433,14 +423,14 @@ void Position::unmakeMove(Move move, bool ev){
     bool capturing = (move >> 12) & (1U);
     uint8_t captureType = (move >> 13) & (7U);
 
-    bool color = (move >> 23);
+    //bool color = (move >> 23);
 
-    sides[color] ^= ((1ULL << startsquare) | (1ULL << endsquare));  // update location of own pieces
+    sides[!toMove] ^= ((1ULL << startsquare) | (1ULL << endsquare));  // update location of own pieces
     pieces[typeMoved] ^= (1ULL << startsquare);                  // remove piece its starting square & type
     pieces[typeEnded] ^= (1ULL << endsquare);                    // place the piece on its ending square & type
 
     pieces[captureType] ^= capturing * (1ULL << endsquare);
-    sides[!color] ^= capturing * (1ULL << endsquare);
+    sides[toMove] ^= capturing * (1ULL << endsquare);
 
     // increment inGamePhase
     // std::cout << "before " << moveToAlgebraic(move) << "inGamePhase: " << inGamePhase << '\n';
@@ -450,17 +440,17 @@ void Position::unmakeMove(Move move, bool ev){
     thm--;
 
     if (ev) {
-        int psb = mps[typeEnded][endsquare ^ (!color * 56)] - mps[typeMoved][startsquare ^ (!color * 56)];
-        int csb = capturing * mps[captureType][endsquare ^ (color * 56)];
+        int psb = mps[typeEnded][endsquare ^ (toMove * 56)] - mps[typeMoved][startsquare ^ (toMove * 56)];
+        int csb = capturing * mps[captureType][endsquare ^ (!toMove * 56)];
 
-        scores[color] -= psb;
-        scores[!color] += csb;
+        scores[!toMove] -= psb;
+        scores[toMove] += csb;
 
-        psb = eps[typeEnded][endsquare ^ (!color * 56)] - eps[typeMoved][startsquare ^ (!color * 56)];
-        csb = capturing * eps[captureType][endsquare ^ (color * 56)];
+        psb = eps[typeEnded][endsquare ^ (toMove * 56)] - eps[typeMoved][startsquare ^ (toMove * 56)];
+        csb = capturing * eps[captureType][endsquare ^ (!toMove * 56)];
 
-        eScores[color] -= psb;
-        eScores[!color] += csb;
+        eScores[!toMove] -= psb;
+        eScores[toMove] += csb;
     }
 
     toMove = !toMove;
@@ -537,7 +527,7 @@ void Position::sendMove(std::string expr){
 uint32_t Engine::getMove(){ return bestMove; }
 bool Bitboards::getSide(){ return toMove; }
 
-std::string Position::makeRandMoves(int toMake){
+std::string Position::makeOpening(int toMake){
     int ni;
     for (int i = 0; i < toMake; i++){
         ni = rand() % fullMoveGen(0, 0);
@@ -597,7 +587,8 @@ void Position::readFen(std::string fen){
 
     std::string fenTerm;
     extraMoves >> fenTerm;
-    thm = stoi(fenTerm);  // get total half move counter
+    thm = 0;
+    chm[thm] = stoi(fenTerm);  // get total half move counter
 
     beginZobristHash();
 

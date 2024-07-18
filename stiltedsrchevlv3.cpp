@@ -449,7 +449,7 @@ int Engine::search(uint32_t thinkTime, int mdepth, uint64_t maxNodes, bool outpu
     try {
         prevNodes = nodes;
         cbEval = alphabeta(alpha, beta, 0, 0, false);
-        if (output){ std::cout << "info depth 0 nodes 0 score cp " << cbEval << '\n';}
+        if (output){ std::cout << "info depth 0 nodes " << nodes << " score cp " << cbEval << '\n';}
         
         for (int i = 1; i < mdepth + 1; i++){
             windowFail = true;
