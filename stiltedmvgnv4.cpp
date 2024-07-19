@@ -6,6 +6,32 @@ TheTilted096, 5-25-2024
 
 #include "stiltedengin.h"
 
+bool Bitboards::RookInit = false;
+Bitboard Bitboards::RookBoards[0x19000];
+
+Bitboards::Bitboards(){
+    if (!RookInit){
+        initRookTable();
+        RookInit = true;
+    }
+}
+
+void Bitboards::initRookTable(){
+    int pos = 0;
+    Bitboard cons;
+
+    //std::ofstream rt("rawTables.txt");
+
+    for (int sq = 0; sq < 64; sq++){
+        for (int idx = 0; idx < (1 << RookBits[sq]); idx++){
+            cons = _pdep_u64(idx, RookMasks[sq]) | (1ULL << sq);
+            RookBoards[pos] = hqRookAttack(sq, cons);
+            //printAsBitboard(RookBoards[pos], rt);
+            pos++;
+        }
+    }
+}
+
 void Bitboards::printAsBitboard(Bitboard board){
     for (int i = 0; i < 64; i++) {
         std::cout << (board & 1ULL);
@@ -213,6 +239,7 @@ Move Representation:
 23: Color
 */
 
+/*
 int Position::fullMoveGen(int ply, bool capsOnly){
     Bitboard moveSet;
     Bitboard tempBoard;
@@ -364,6 +391,214 @@ int Position::fullMoveGen(int ply, bool capsOnly){
     }
 
     return totalNumMoves;
+}
+*/
+
+int Position::fullMoveGen(int ply, bool cpex){
+    int totalMoves = 0;
+
+    Bitboard mvst, pcs, xset;
+    Bitboard occ = sides[0] | sides[1];
+    int f, p;
+
+
+    //pawns
+    //deal with pawn pushes first
+    pcs = sides[toMove] & pieces[5];
+    Bitboard pshtrgt = !cpex * ((pcs << 8) >> (toMove << 4) & ~occ);
+    while (pshtrgt){
+        f = __builtin_ctzll(pshtrgt); //get the least bit (destination square);
+        moves[ply][totalMoves] = f - 8 + (toMove << 4); //deduce starting square from color
+        moves[ply][totalMoves] |= (f << 6); //write in destination 
+        moves[ply][totalMoves] |= (5U << 16); //piece type (5)
+        
+        bool prmt = (1ULL << f) & 0xFF000000000000FF; //determine promotion
+        moves[ply][totalMoves] |= ((10U ^ (13U * prmt)) << 19); //brancless set promotion bits
+
+        //mprior[ply][totalMoves] = historyTable[toMove][5][f];
+
+        moves[ply][totalMoves] |= (toMove << 23); //set color bit
+        pshtrgt ^= (1ULL << f); //pop out bit
+        totalMoves++;
+    }
+
+    //then pawn captures
+    while (pcs){
+        f = __builtin_ctzll(pcs); //get least bit (starting square)
+        mvst = plt[toMove][f] & sides[!toMove]; //pawn captures from that square
+        while (mvst){ //for each set bit
+            p = __builtin_ctzll(mvst); //get the least bit (destination)
+            moves[ply][totalMoves] = f; //write in start
+            moves[ply][totalMoves] |= (p << 6); //write in end
+
+            int cc;
+            for (cc = 1; cc < 6; cc++){ //determine victim
+                if ((1ULL << p) & pieces[cc]){
+                    moves[ply][totalMoves] |= (1U << 12);
+                    moves[ply][totalMoves] |= (cc << 13);
+                    break;   
+                }
+            }
+
+            moves[ply][totalMoves] |= (5U << 16); //piece type (5)
+
+            bool prmt = ((1ULL << p) & 0xFF000000000000FF); //cast promotion mask to bool
+            moves[ply][totalMoves] |= ((10U ^ (13U * prmt)) << 19); //branchless set promotion bits
+            moves[ply][totalMoves] |= (toMove << 23); //set color bits
+
+            //mprior[ply][totalMoves] = (1 << 20) + 5 - (cc << 12);
+            
+            mvst ^= (1ULL << p); //pop out bit
+            totalMoves++; //next
+        }
+        pcs ^= (1ULL << f);       
+    }
+
+    //leapers
+    for (int ll = 4; ll > 1; ll--){
+        pcs = sides[toMove] & pieces[ll];
+        while (pcs){
+            f = __builtin_ctzll(pcs); //starting square
+            //captures first
+            xset = llt[ll][f] & sides[!toMove];
+            mvst = !cpex * ((llt[ll][f] & ~sides[toMove]) ^ xset); //non-captures
+
+            //printAsBitboard(xset, std::cout);
+            while (xset){
+                p = __builtin_ctzll(xset); //get destination square
+                moves[ply][totalMoves] = f; //input start and end squraes
+                moves[ply][totalMoves] |= (p << 6);
+                
+                int cc;
+                for (cc = 1; cc < 6; cc++){ //determine victim
+                    if ((1ULL << p) & pieces[cc]){ 
+                        moves[ply][totalMoves] |= (1U << 12);
+                        moves[ply][totalMoves] |= (cc << 13);
+                        break;   
+                    }
+                }
+
+                moves[ply][totalMoves] |= (ll << 16); //set bits
+                moves[ply][totalMoves] |= (ll << 20);
+                moves[ply][totalMoves] |= (toMove << 23);
+
+                //mprior[ply][totalMoves] = (1 << 20) + ll - (cc << 12);
+
+                totalMoves++;
+                xset ^= (1ULL << p); //pop out
+            }
+            
+            //NON captures [generated above]
+            //printAsBitboard(mvst, std::cout);
+            while (mvst){
+                p = __builtin_ctzll(mvst); //get destination square
+                moves[ply][totalMoves] = f; //input start and end squraes
+                moves[ply][totalMoves] |= (p << 6);
+
+                moves[ply][totalMoves] |= (ll << 16); //set bits
+                moves[ply][totalMoves] |= (ll << 20);
+                moves[ply][totalMoves] |= (toMove << 23);
+
+                //mprior[ply][totalMoves] = historyTable[toMove][ll][p];
+
+                totalMoves++;
+                mvst ^= (1ULL << p); //pop out
+            }
+
+            pcs ^= (1ULL << f);
+        }
+    }
+
+    //rooks
+    pcs = sides[toMove] & pieces[1];
+    while (pcs){ //for each rook
+        f = __builtin_ctzll(pcs); //get starting square
+        Bitboard rtb = RookBoards[RookOffset[f] + _pext_u64(occ, RookMasks[f])]; //get attack board
+        //Bitboard rtb = hqRookAttack(f, occ);
+        xset = rtb & sides[!toMove]; //get captures first
+        mvst = !cpex * ((rtb & ~sides[toMove]) ^ xset); //non captures
+        while (xset){
+            p = __builtin_ctzll(xset);
+            moves[ply][totalMoves] = f; //start and end squares
+            moves[ply][totalMoves] |= (p << 6);
+
+            int cc;
+            for (cc = 1; cc < 6; cc++){ //find victim
+                if ((1ULL << p) & pieces[cc]){
+                    moves[ply][totalMoves] |= (1U << 12);
+                    moves[ply][totalMoves] |= (cc << 13);
+                    break;
+                }
+            }
+            moves[ply][totalMoves] |= 0x110000U; //set bits about piece type
+            moves[ply][totalMoves] |= (toMove << 23);
+
+            //mprior[ply][totalMoves] = (1 << 20) + 1 - (cc << 12);
+
+            xset ^= (1ULL << p); //pop out bit
+            totalMoves++;
+            //assert(totalMoves < 256);
+        }
+
+        //non captures (generated above
+        while (mvst){ 
+            p = __builtin_ctzll(mvst);
+            moves[ply][totalMoves] = f;
+            moves[ply][totalMoves] |= (p << 6);
+            moves[ply][totalMoves] |= 0x110000U;
+            moves[ply][totalMoves] |= (toMove << 23);
+
+            //mprior[ply][totalMoves] = historyTable[toMove][1][p];
+
+            totalMoves++;
+            mvst ^= (1ULL << p);
+            //assert(totalMoves < 256);
+        }
+
+        pcs ^= (1ULL << f);
+    }
+    
+    //King
+    pcs = sides[toMove] & pieces[0]; //get king
+    f = __builtin_ctzll(pcs); //locate it
+    xset = llt[0][f] & sides[!toMove]; //do captures
+    mvst = !cpex * ((llt[0][f] & ~sides[toMove]) ^ xset); //non captures 
+    while (xset){
+        p = __builtin_ctzll(xset); //find destination
+        moves[ply][totalMoves] = f; //set start/end bits
+        moves[ply][totalMoves] |= (p << 6);
+
+        int cc;
+        for (cc = 1; cc < 6; cc++){ //locate victim and set bits
+            if ((1ULL << p) & pieces[cc]){
+                moves[ply][totalMoves] |= (1U << 12);
+                moves[ply][totalMoves] |= (cc << 13);
+                break;
+            }
+        }
+
+        //mprior[ply][totalMoves] = (1 << 20) + 0 - (cc << 12);
+
+        moves[ply][totalMoves] |= (toMove << 23); //set side (everything else is 0)
+        totalMoves++; //pop
+        xset ^= (1ULL << p);
+    }
+
+    //do for non-captures (generated above)
+    while (mvst){
+        p = __builtin_ctzll(mvst); //get destination and set location and side bits.
+        moves[ply][totalMoves] = f;
+        moves[ply][totalMoves] |= (p << 6);
+        moves[ply][totalMoves] |= (toMove << 23);
+
+        //mprior[ply][totalMoves] = historyTable[toMove][0][p];
+
+        totalMoves++;
+        mvst ^= (1ULL << p);
+    }
+    
+
+    return totalMoves;
 }
 
 void Position::makeMove(Move move, bool ev){
