@@ -64,21 +64,21 @@ bool Bitboards::ownKingBare(){
     return (__builtin_popcountll(sides[toMove]) == 1);
 }
 
-bool Bitboards::isChecked(){  // checks if the opposing side is left in check; called after makeMove
+bool Bitboards::isChecked(bool sd){  // checks if the opposing side is left in check; called after makeMove
     Bitboard inc;
-    int ksq = __builtin_ctzll(sides[!toMove] & pieces[0]);
+    int ksq = __builtin_ctzll(sides[sd] & pieces[0]);
 
-    Bitboard rookSet = hyperbolaQuintessence(ksq);
-    rookSet |= ((uint64_t)hlt[ksq & 7][((((RANK0 << ((ksq & 56))) & (sides[0] | sides[1])) >> (ksq & 56)) >> 1) & 63])
-                  << (ksq & 56); 
+    Bitboard rookSet = hqRookAttack(ksq, sides[0] | sides[1]);
+    //rookSet |= ((uint64_t)hlt[ksq & 7][((((RANK0 << ((ksq & 56))) & (sides[0] | sides[1])) >> (ksq & 56)) >> 1) & 63])
+    //              << (ksq & 56); 
 
     //std::cout << "kingSquare: ksq\n";
-    inc = llt[0][ksq] & pieces[0] & sides[toMove];
-    inc |= rookSet & pieces[1] & sides[toMove];
-    inc |= llt[2][ksq] & pieces[2] & sides[toMove];
-    inc |= llt[3][ksq] & pieces[3] & sides[toMove];
-    inc |= llt[4][ksq] & pieces[4] & sides[toMove];
-    inc |= plt[!toMove][ksq] & pieces[5] & sides[toMove];
+    inc = llt[0][ksq] & pieces[0] & sides[!sd];
+    inc |= rookSet & pieces[1] & sides[!sd];
+    inc |= llt[2][ksq] & pieces[2] & sides[!sd];
+    inc |= llt[3][ksq] & pieces[3] & sides[!sd];
+    inc |= llt[4][ksq] & pieces[4] & sides[!sd];
+    inc |= plt[sd][ksq] & pieces[5] & sides[!sd];
 
     //phasma = inc;
 
@@ -112,17 +112,25 @@ void Bitboards::printAllBitboards(){
     std::cout << "toMove: " << toMove << "\n\n";
 }
 
-uint64_t Bitboards::hyperbolaQuintessence(int& square){
-    uint64_t forward = (sides[0] | sides[1]) & (FILE0 << (square & 7));
-    uint64_t reverse = __builtin_bswap64(forward);
+Bitboard Bitboards::hqRookAttack(int& sq, Bitboard occ){
+    Bitboard forward = occ & (0x0101010101010101ULL << (sq & 7));
+    Bitboard reverse = __builtin_bswap64(forward);
 
-    forward -= 2 * (1ULL << square);
-    reverse -= 2 * (1ULL << (56 ^ square));
+    forward -= 2 * (1ULL << sq);
+    reverse -= 2 * (1ULL << (56 ^ sq));
 
     forward ^= __builtin_bswap64(reverse);
-    forward &= (FILE0 << (square & 7));
+    forward &= (0x0101010101010101ULL << (sq & 7)); //forward is now vertical attacks
 
-    return forward;
+    //printAsBitboard(forward, std::cout);
+
+    Bitboard horizontal = ((uint64_t)hlt[sq & 7]
+        [((((0xFFULL << ((sq & 56))) & occ) >> (sq & 56)) >> 1) & 63]) << (sq & 56);
+
+    //printAsBitboard(horizontal, std::cout);
+    //printAsBitboard(forward | horizontal, std::cout);
+
+    return (forward | horizontal);
 }
 
 Position::Position(){
@@ -206,9 +214,9 @@ Move Representation:
 */
 
 int Position::fullMoveGen(int ply, bool capsOnly){
-    uint64_t moveSet;
-    uint64_t tempBoard;
-    uint64_t occupied = sides[0] | sides[1];
+    Bitboard moveSet;
+    Bitboard tempBoard;
+    Bitboard occupied = sides[0] | sides[1];
 
     int numPieces;  // number of piees in bitboard
     int numMoves;   // moves in moveset
@@ -316,8 +324,8 @@ int Position::fullMoveGen(int ply, bool capsOnly){
         g += (f + 1);
 
         // vertical, horizontal, avoid capturing friends
-        moveSet = hyperbolaQuintessence(g);
-        moveSet |= ((uint64_t)hlt[g & 7][((((RANK0 << ((g & 56))) & occupied) >> (g & 56)) >> 1) & 63]) << (g & 56);
+        moveSet = hqRookAttack(g, occupied);
+        //moveSet |= ((uint64_t)hlt[g & 7][((((RANK0 << ((g & 56))) & occupied) >> (g & 56)) >> 1) & 63]) << (g & 56);
         moveSet &= ~sides[toMove];
 
         if (capsOnly) {
@@ -479,7 +487,7 @@ uint64_t Position::perft(int depth, int ply){
         makeMove(moves[ply][i], false);
         //std::cout << moveToAlgebraic(moves[ply][i]) << '\n';
 
-        if (isChecked()) {
+        if (isChecked(!toMove)) {
             unmakeMove(moves[ply][i], false);
             continue;
         }
@@ -532,7 +540,7 @@ std::string Position::makeOpening(int toMake){
     for (int i = 0; i < toMake; i++){
         ni = rand() % fullMoveGen(0, 0);
         makeMove(moves[0][ni], false);
-        if (isChecked()){
+        if (isChecked(!toMove)){
             unmakeMove(moves[0][ni], false);
             i--;
         }

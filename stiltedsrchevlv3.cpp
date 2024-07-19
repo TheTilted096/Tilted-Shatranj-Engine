@@ -56,9 +56,6 @@ int Position::evaluate(){
     return (mdiff * inGamePhase + ediff * (Position::totalGamePhase - inGamePhase)) / Position::totalGamePhase;
 }
 
-
-
-
 TTentry::TTentry(){
     eScore = -29501;
     eHash = 0; enType = -1;
@@ -114,7 +111,6 @@ Engine::Engine(){
 Engine::~Engine(){
     delete[] ttable;
 }
-
 
 void Engine::showZobrist(){
     std::cout << "Tranposition Table:\n";
@@ -177,14 +173,6 @@ void Engine::newGame(){
     eraseKillers();
 }
 
-bool Engine::isInteresting(uint32_t& move, bool checked){
-    toMove = !toMove;
-    bool giveCheck = isChecked();
-    toMove = !toMove;
-
-    return ((move >> 12) & 1U) or ((move >> 19) & 1U) or giveCheck or checked;
-}
-
 void Engine::sortMoves(int nc, int ply){
     int keyVal;
     Move keyMove;
@@ -230,7 +218,7 @@ int Engine::quiesce(int alpha, int beta, int lply){
     for (int i = 0; i < nc; i++){
         makeMove(moves[64 + lply][i], true);
         endHandle();
-        if (isChecked() or kingBare()){
+        if (isChecked(!toMove) or kingBare()){
             unmakeMove(moves[64 + lply][i], true);
             continue;
         }
@@ -280,9 +268,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
         }
     }
 
-    toMove = !toMove;
-    bool inCheck = isChecked();
-    toMove = !toMove;
+    bool inCheck = isChecked(toMove);
 
     //Reverse Futility Pruning
     int be = evaluate();
@@ -296,11 +282,9 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     //nmp enabled if both sides have material and there was no nmp before
     //nmp disabled if both sides dont have material or there was nmp before
 
-    if (nmp and (ply != 0) and (depth > 1)){
+    if (nmp and (ply != 0) and (depth > 1) and !inCheck){
         passMove();
-        if (!isChecked()){
-            score = -alphabeta(-beta, -alpha, depth - 2, ply + 1, nmp);
-        }
+        score = -alphabeta(-beta, -alpha, depth - 2, ply + 1, nmp);
         unpassMove();
         if (score >= beta){
             return beta;
@@ -341,7 +325,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
         makeMove(moves[ply][i], true); 
         endHandle();
 
-        if (isChecked() or kingBare()){
+        if (isChecked(!toMove) or kingBare()){
             //std::cout << "check: " << moveToAlgebraic(moves[ply][i]) << '\n';
             unmakeMove(moves[ply][i], true);
             continue;
@@ -357,7 +341,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
             //score = -alphabeta(-alpha-1, -alpha, depth - 1, ply + 1, nmp); bare PVS
             
             lmrReduce = lmrReduces[depth][i];
-            boringMove = (depth > 1) and !isInteresting(moves[ply][i], inCheck);
+            boringMove = (depth > 1) and !(((moves[ply][i] >> 12) & 1U) or ((moves[ply][i] >> 19) & 1U) or isChecked(toMove) or inCheck);
             lmrReduce *= boringMove;
             
             score = -alphabeta(-alpha-1, -alpha, std::max(depth-1-lmrReduce, 0), ply + 1, nmp);

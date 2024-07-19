@@ -39,7 +39,6 @@ class Engine : public Position{
     
     void endHandle();
 
-    bool isInteresting(uint32_t&, bool);
     void eraseTransposeTable();
     void eraseKillers();
 

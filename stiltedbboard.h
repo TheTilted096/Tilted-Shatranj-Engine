@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cmath>
 #include <fstream>
+#include <immintrin.h>
 #include <iostream>
 #include <random>
 #include <sstream>
@@ -153,9 +154,9 @@ class Bitboards{
         Bitboard sides[2], pieces[6];
         bool toMove;
 
-        bool isChecked();
+        bool isChecked(bool);
         bool kingBare();
-        uint64_t hyperbolaQuintessence(int&);
+        static Bitboard hqRookAttack(int&, Bitboard);
         bool ownKingBare();
 
         bool getSide();
