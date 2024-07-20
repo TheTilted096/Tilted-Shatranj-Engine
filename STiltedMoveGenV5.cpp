@@ -4,7 +4,7 @@ TheTilted096, 5-25-2024
 
 */
 
-#include "stiltedengin.h"
+#include "STiltedEngine.h"
 
 bool Bitboards::RookInit = false;
 Bitboard Bitboards::RookBoards[0x19000];

@@ -1,5 +1,14 @@
+/*
+Class Definition of the Engine Class
+Inheirits from Position for its attributes
 
-#include "stiltedposition.h"
+Primarily a search class
+
+TheTilted096, 7-19-24
+*/
+
+
+#include "STiltedPosition.h"
 
 //Transposition Table Entry
 class TTentry{

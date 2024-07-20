@@ -1,3 +1,12 @@
+/*
+Very Base Class for the Tilted Engine
+Bitboards is a set of bitboards representing
+a basic position and low-level attributes
+
+TheTilted096, 7-19-24
+
+*/
+
 #include <cassert>
 #include <chrono>
 #include <cstdint>
@@ -9,8 +18,8 @@
 #include <sstream>
 #include <string>
 
-#pragma GCC target("popcnt")
-#pragma GCC optimize("O2")
+//#pragma GCC target("popcnt")
+//#pragma GCC optimize("O2")
 
 #define RANK0 0xFFULL                // 8th rank
 #define RANK7 0xFF00000000000000ULL  // 1st rank

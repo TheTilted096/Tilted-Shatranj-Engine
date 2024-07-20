@@ -6,7 +6,7 @@ TheTilted096, 5-25-2024
 UCI interfacing and refitting to OOP design. 
 */
 
-#include "stiltedsrchevlv3.cpp"
+#include "STiltedEngine.h"
 
 int main(){
     srand(time(0));

@@ -4,7 +4,7 @@ TheTilted096, 5-25-2024
 
 */
 
-#include "stiltedmvgnv4.cpp"
+#include "STiltedEngine.h"
 
 
 int Position::evaluateScratch(){
@@ -317,7 +317,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     bool searchPv = true;
 
     int lmrReduce;
-    bool boringMove, quietMove;
+    bool boringMove;
 
     for (int i = 0; i < numMoves; i++){
         //std::cout << "considering: " << moveToAlgebraic(moves[ply][i]) << '\t' << mprior[ply][i] << '\n';

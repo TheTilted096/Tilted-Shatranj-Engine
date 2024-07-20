@@ -1,5 +1,14 @@
+/*
+Position Class, intermediate object
+for Tilted Shatranj Engine
 
-#include "stiltedbboard.h"
+Contains move generation and static position attributes
+
+TheTilted096, 7-19-24
+
+*/
+
+#include "STiltedBitboards.h"
 
 class Position : public Bitboards{
     public:
