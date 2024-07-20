@@ -45,12 +45,11 @@ void Bitboards::printAsBitboard(Bitboard board){
 
 void Bitboards::printMoveAsBinary(Move move){
     int spaces[8] = {25, 19, 18, 15, 12, 11, 8, 7};
-    uint32_t msb = 1 << 31;
-    for (int i = 0; i < 32; i++) {
-        std::cout << move / msb;
-        move <<= 1;
-        for (int j : spaces) {
-            if (i == j) {
+
+    for (int i = 0; i < 32; i++){
+        std::cout << ((move >> (31 - i)) & 1U);
+        for (int j : spaces){
+            if (i == j){
                 std::cout << ' ';
                 break;
             }
@@ -94,12 +93,14 @@ bool Bitboards::isChecked(bool sd){  // checks if the opposing side is left in c
     Bitboard inc;
     int ksq = __builtin_ctzll(sides[sd] & pieces[0]);
 
-    Bitboard rookSet = hqRookAttack(ksq, sides[0] | sides[1]);
+    //Bitboard rookSet = hqRookAttack(ksq, sides[0] | sides[1]);
     //rookSet |= ((uint64_t)hlt[ksq & 7][((((RANK0 << ((ksq & 56))) & (sides[0] | sides[1])) >> (ksq & 56)) >> 1) & 63])
     //              << (ksq & 56); 
 
     //std::cout << "kingSquare: ksq\n";
     inc = llt[0][ksq] & pieces[0] & sides[!sd];
+
+    Bitboard rookSet = RookBoards[RookOffset[ksq] + _pext_u64((sides[0] | sides[1]), RookMasks[ksq])];
     inc |= rookSet & pieces[1] & sides[!sd];
     inc |= llt[2][ksq] & pieces[2] & sides[!sd];
     inc |= llt[3][ksq] & pieces[3] & sides[!sd];
@@ -175,7 +176,7 @@ Position::Position(){
 }
 
 void Position::beginZobristHash(){
-    zhist[thm] = 0;
+    zhist[thm] = !toMove * ztk;
     chm[thm] = thm;
 
     Bitboard tpbd;
@@ -239,168 +240,12 @@ Move Representation:
 23: Color
 */
 
-/*
-int Position::fullMoveGen(int ply, bool capsOnly){
-    Bitboard moveSet;
-    Bitboard tempBoard;
-    Bitboard occupied = sides[0] | sides[1];
-
-    int numPieces;  // number of piees in bitboard
-    int numMoves;   // moves in moveset
-    int f, g;       // piece squares
-    int p, q;       // destination squares
-    int totalNumMoves = 0;
-
-    // pawns
-    g = -1;                              // initialize starting square
-    tempBoard = sides[toMove] & pieces[5];  // get a copy of the pawns bitboard
-    while (tempBoard) {                  // for each pawn
-        f = __builtin_ctzll(tempBoard);  // find the next square
-        g += (f + 1);
-
-        moveSet = (plt[toMove][g] & (sides[!toMove]));      // possible captures
-        moveSet |= ((((1ULL << (g + 8 - toMove * 16)) & (~occupied))) * (!capsOnly));  // possible push
-
-        q = -1;
-        while (moveSet) {  // if there are captures
-            p = __builtin_ctzll(moveSet);
-            q += (p + 1);
-
-            moves[ply][totalNumMoves] = g;          // start
-            moves[ply][totalNumMoves] |= (q << 6);  // end
-
-            if ((sides[!toMove] & (1ULL << q))) {         // if is a capture
-                for (int cc = 0; cc < 6; cc++) {                     // find the captured piece, if any by scanning through opp bbs
-                    if (sides[!toMove] & pieces[cc] & (1ULL << q)) {  // if enemy bitboard intersect with dest square
-                        moves[ply][totalNumMoves] |= (4096U);        // capture bit set
-                        moves[ply][totalNumMoves] |= (cc << 13);     // set bits accordingly and exit loop
-                        break;
-                    }
-                }
-            }
-
-            moves[ply][totalNumMoves] |= (5U << 16);
-            if ((1ULL << q) & ((toMove) ? RANK0 : RANK7)) {  // if promoting
-                moves[ply][totalNumMoves] |= (7U << 19);
-                // std::cout << "promotion\n";
-            } else {
-                moves[ply][totalNumMoves] |= (5U << 20);
-            }
-
-            moves[ply][totalNumMoves] |= (toMove << 23);
-
-            moveSet >>= p;
-            moveSet >>= 1;
-            totalNumMoves++;
-        }
-        tempBoard >>= f;
-        tempBoard >>= 1;
-    }
-
-    int leapers[4] = {4, 3, 2, 0};
-    for (int ll : leapers) {
-        g = -1;
-        tempBoard = sides[toMove] & pieces[ll];
-        while (tempBoard) {
-            f = __builtin_ctzll(tempBoard);
-            g += (f + 1);
-
-            moveSet = llt[ll][g];                // lookup moveset
-            moveSet &= ~sides[toMove];  // and not friendly pieces
-            if (capsOnly) {
-                moveSet &= sides[!toMove];
-            }
-            q = -1;
-            while (moveSet) {
-                p = __builtin_ctzll(moveSet);
-                q += (p + 1);
-
-                moves[ply][totalNumMoves] = g;          // start
-                moves[ply][totalNumMoves] |= (q << 6);  // end
-
-                if ((sides[!toMove] & (1ULL << q))) {         // if is a capture
-                    for (int cc = 0; cc < 6; cc++) {                     // find the captured piece, if any by scanning through opp bbs
-                        if (sides[!toMove] & pieces[cc] & (1ULL << q)) {  // if enemy bitboard intersect with dest square
-                            moves[ply][totalNumMoves] |= (4096U);        // capture bit set
-                            moves[ply][totalNumMoves] |= (cc << 13);     // set bits accordingly and exit loop
-                            break;
-                        }
-                    }
-                }
-
-                moves[ply][totalNumMoves] |= (ll << 16);
-                moves[ply][totalNumMoves] |= (ll << 20);
-                moves[ply][totalNumMoves] |= (toMove << 23);
-
-                totalNumMoves++;
-                moveSet >>= p;
-                moveSet >>= 1;
-            }
-            tempBoard >>= f;
-            tempBoard >>= 1;
-        }
-
-        // std::cout << "leaper " << ll << " finished\n";
-    }
-
-    // rooks
-    g = -1;
-    tempBoard = pieces[1] & sides[toMove];
-    while (tempBoard) {
-        f = __builtin_ctzll(tempBoard);
-        g += (f + 1);
-
-        // vertical, horizontal, avoid capturing friends
-        moveSet = hqRookAttack(g, occupied);
-        //moveSet |= ((uint64_t)hlt[g & 7][((((RANK0 << ((g & 56))) & occupied) >> (g & 56)) >> 1) & 63]) << (g & 56);
-        moveSet &= ~sides[toMove];
-
-        if (capsOnly) {
-            moveSet &= sides[!toMove];
-        }
-
-        q = -1;
-        while (moveSet) {
-            p = __builtin_ctzll(moveSet);
-            q += (p + 1);
-
-            moves[ply][totalNumMoves] = g;
-            moves[ply][totalNumMoves] |= (q << 6);
-
-            // std::cout << "steps 1 2\n";
-
-            if ((sides[!toMove] & (1ULL << q))) {
-                // printAsBitboard(pieces[7 * !toMove + 6]);
-                for (int cc = 0; cc < 6; cc++) {                     // find the captured piece, if any by scanning through opp bbs
-                    if (sides[!toMove] & pieces[cc] & (1ULL << q)) {  // if enemy bitboard intersect with dest square
-                        moves[ply][totalNumMoves] |= (4096U);        // capture bit set
-                        moves[ply][totalNumMoves] |= (cc << 13);     // set bits accordingly and exit loop
-                        break;
-                    }
-                }
-            }
-            moves[ply][totalNumMoves] |= 0x110000U;
-            moves[ply][totalNumMoves] |= (toMove << 23);
-
-            moveSet >>= p;
-            moveSet >>= 1;
-            totalNumMoves++;
-        }
-        tempBoard >>= f;
-        tempBoard >>= 1;
-    }
-
-    return totalNumMoves;
-}
-*/
-
 int Position::fullMoveGen(int ply, bool cpex){
     int totalMoves = 0;
 
     Bitboard mvst, pcs, xset;
     Bitboard occ = sides[0] | sides[1];
     int f, p;
-
 
     //pawns
     //deal with pawn pushes first

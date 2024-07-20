@@ -10,7 +10,6 @@ UCI interfacing and refitting to OOP design.
 
 int main(){
     srand(time(0));
-    //Position::initZobristKeys();
 
     Engine engine;
 
