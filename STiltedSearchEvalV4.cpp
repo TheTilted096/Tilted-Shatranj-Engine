@@ -182,7 +182,7 @@ void Engine::sortMoves(int nc, int ply){
         keyVal = mprior[ply][i];
         keyMove = moves[ply][i];
         j = i - 1;
-        while ((j >= 0) and (mprior[ply][j] > keyVal)){
+        while ((j >= 0) and (mprior[ply][j] < keyVal)){
             mprior[ply][j + 1] = mprior[ply][j];
             moves[ply][j + 1] = moves[ply][j];
             j--;
@@ -208,10 +208,17 @@ int Engine::quiesce(int alpha, int beta, int lply){
     int nc = fullMoveGen(64 + lply, 1);
 
     //MVVLVA
+    /*
     for (int ii = 0; ii < nc; ii++){ //generate move priorities for all
-        mprior[64 + lply][ii] = ((moves[64 + lply][ii] >> 16) & 7) * (-1); //less valuable = better (-a)
+        mprior[64 + lply][ii] = -((moves[64 + lply][ii] >> 16) & 7); //less valuable = better (-a)
         mprior[64 + lply][ii] += (10 * ((moves[64 + lply][ii] >> 13) & 7)); //10v
     }
+    */
+
+    for (int ii = 0; ii < nc; ii++){
+        mprior[64 + lply][ii] = (1 << 20) + ((moves[64 + lply][ii] >> 16) & 7U) - (((moves[64 + lply][ii] >> 13) & 7U) << 9);
+    }
+    
 
     sortMoves(nc, 64 + lply);
 
@@ -292,7 +299,9 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     }
 
     int numMoves = fullMoveGen(ply, 0);
-
+    
+    //stilted-26-zfix
+    /*
     for (int ll = 0; ll < numMoves; ll++){ //for each move, score it
         if (moves[ply][ll] == ttable[ttindex].eMove){ //TT-move has score 0
             mprior[ply][ll] = 0;
@@ -305,6 +314,33 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
                  historyTable[toMove][(moves[ply][ll] >> 16U) & 7U][(moves[ply][ll] >> 6U) & 63U]; //non-captures have value 20000
         }
     }
+    */
+
+    /*
+    for (int ll = 0; ll < numMoves; ll++){ //for each move, score it
+        if (moves[ply][ll] == ttable[ttindex].eMove){ //TT-move has score 0
+            mprior[ply][ll] = (1 << 30);
+        } else if ((moves[ply][ll] >> 12U) & 1U){ //captures have value 512 * victim - aggressor
+            mprior[ply][ll] = (1 << 20) + ((moves[ply][ll] >> 16) & 7U) - (((moves[ply][ll] >> 13) & 7U) << 9);
+        } else if ((moves[ply][ll] == killers[ply][0]) or (moves[ply][ll] == killers[ply][1])){
+            mprior[ply][ll] = (1 << 16); //killers have value 10000
+        } else {
+            mprior[ply][ll] = ((moves[ply][ll] >> 16U) & 7U) +
+                 historyTable[toMove][(moves[ply][ll] >> 16U) & 7U][(moves[ply][ll] >> 6U) & 63U]; //non-captures have value 20000
+        }
+    }
+    */
+
+    for (int ll = 0; ll < numMoves; ll++){
+        if (moves[ply][ll] == ttable[ttindex].eMove){
+            mprior[ply][ll] = (1 << 30);
+            continue;
+        }
+        if ((moves[ply][ll] == killers[ply][0]) or (moves[ply][ll] == killers[ply][1])){
+            mprior[ply][ll] = (1 << 16);
+        }
+    }
+
     
     sortMoves(numMoves, ply);
 
@@ -313,7 +349,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     }
 
     uint32_t localBestMove = 0; //for TT updating
-    bool isAllNode = true;
+    //bool isAllNode = true;
     bool searchPv = true;
 
     int lmrReduce;
@@ -371,7 +407,11 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
                     numKillers[ply]++;
                 }
 
-                historyTable[toMove][(moves[ply][i] >> 16U) & 7U][(moves[ply][i] >> 6U) & 63U] += (depth * depth);
+                uint8_t pstp = (moves[ply][i] >> 16) & 7U;
+                uint8_t edsq = (moves[ply][i] >> 6) & 63U;
+
+                bool hexc = historyTable[toMove][pstp][edsq] > (1 << 20);
+                historyTable[toMove][pstp][edsq] += (depth * depth * !hexc);
             }            
 
             return beta; // fail-hard beta cutoff
@@ -383,7 +423,6 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
             }
             //PV - Nodes (1)
             localBestMove = moves[ply][i];
-            isAllNode = false;
             searchPv = false;
             alpha = score;
         }
@@ -392,13 +431,13 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     //std::cout << "Alpha: " << alpha << "\tScore: " << score << '\n';
 
     if (score == -29000){ //if no legal moves -> mate
-        //std::cout << "no legal moves\n";
+        //std::cout << "no legal moves\n";sea
         score += ply;
         return score;
     }
     
     // TT-updating
-    if (isAllNode){
+    if (searchPv){
         ttable[ttindex].update(alpha, 3, depth, 0, thm);
     } else {
         ttable[ttindex].update(alpha, 1, depth, localBestMove, thm);

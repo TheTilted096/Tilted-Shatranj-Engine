@@ -202,8 +202,8 @@ void Position::beginZobristHash(){
 void Position::eraseHistoryTable(){
     for (int i = 0; i < 6; i++){
         for (int j = 0; j < 64; j++){
-            historyTable[0][i][j] = 0;
-            historyTable[1][i][j] = 0;
+            historyTable[0][i][j] = -(1 << 20);
+            historyTable[1][i][j] = -(1 << 20);
         }
     }
 }
@@ -260,7 +260,7 @@ int Position::fullMoveGen(int ply, bool cpex){
         bool prmt = (1ULL << f) & 0xFF000000000000FF; //determine promotion
         moves[ply][totalMoves] |= ((10U ^ (13U * prmt)) << 19); //brancless set promotion bits
 
-        //mprior[ply][totalMoves] = historyTable[toMove][5][f];
+        mprior[ply][totalMoves] = historyTable[toMove][5][f] + 5;
 
         moves[ply][totalMoves] |= (toMove << 23); //set color bit
         pshtrgt ^= (1ULL << f); //pop out bit
@@ -291,7 +291,7 @@ int Position::fullMoveGen(int ply, bool cpex){
             moves[ply][totalMoves] |= ((10U ^ (13U * prmt)) << 19); //branchless set promotion bits
             moves[ply][totalMoves] |= (toMove << 23); //set color bits
 
-            //mprior[ply][totalMoves] = (1 << 20) + 5 - (cc << 12);
+            mprior[ply][totalMoves] = (1 << 20) + 5 - (cc << 9);
             
             mvst ^= (1ULL << p); //pop out bit
             totalMoves++; //next
@@ -327,7 +327,7 @@ int Position::fullMoveGen(int ply, bool cpex){
                 moves[ply][totalMoves] |= (ll << 20);
                 moves[ply][totalMoves] |= (toMove << 23);
 
-                //mprior[ply][totalMoves] = (1 << 20) + ll - (cc << 12);
+                mprior[ply][totalMoves] = (1 << 20) + ll - (cc << 9);
 
                 totalMoves++;
                 xset ^= (1ULL << p); //pop out
@@ -344,7 +344,7 @@ int Position::fullMoveGen(int ply, bool cpex){
                 moves[ply][totalMoves] |= (ll << 20);
                 moves[ply][totalMoves] |= (toMove << 23);
 
-                //mprior[ply][totalMoves] = historyTable[toMove][ll][p];
+                mprior[ply][totalMoves] = historyTable[toMove][ll][p] + ll;
 
                 totalMoves++;
                 mvst ^= (1ULL << p); //pop out
@@ -378,7 +378,7 @@ int Position::fullMoveGen(int ply, bool cpex){
             moves[ply][totalMoves] |= 0x110000U; //set bits about piece type
             moves[ply][totalMoves] |= (toMove << 23);
 
-            //mprior[ply][totalMoves] = (1 << 20) + 1 - (cc << 12);
+            mprior[ply][totalMoves] = (1 << 20) + 1 - (cc << 9);
 
             xset ^= (1ULL << p); //pop out bit
             totalMoves++;
@@ -393,7 +393,7 @@ int Position::fullMoveGen(int ply, bool cpex){
             moves[ply][totalMoves] |= 0x110000U;
             moves[ply][totalMoves] |= (toMove << 23);
 
-            //mprior[ply][totalMoves] = historyTable[toMove][1][p];
+            mprior[ply][totalMoves] = historyTable[toMove][1][p] + 1;
 
             totalMoves++;
             mvst ^= (1ULL << p);
@@ -422,7 +422,7 @@ int Position::fullMoveGen(int ply, bool cpex){
             }
         }
 
-        //mprior[ply][totalMoves] = (1 << 20) + 0 - (cc << 12);
+        mprior[ply][totalMoves] = (1 << 20) + 0 - (cc << 9);
 
         moves[ply][totalMoves] |= (toMove << 23); //set side (everything else is 0)
         totalMoves++; //pop
@@ -436,7 +436,7 @@ int Position::fullMoveGen(int ply, bool cpex){
         moves[ply][totalMoves] |= (p << 6);
         moves[ply][totalMoves] |= (toMove << 23);
 
-        //mprior[ply][totalMoves] = historyTable[toMove][0][p];
+        mprior[ply][totalMoves] = historyTable[toMove][0][p];
 
         totalMoves++;
         mvst ^= (1ULL << p);
