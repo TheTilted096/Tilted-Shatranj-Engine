@@ -40,7 +40,6 @@ class Engine : public Position{
 
     TTentry* ttable;
     uint32_t killers[64][2];
-    int numKillers[64];
 
     bool timeKept;
     int64_t thinkLimit; //think time limit
@@ -52,6 +51,9 @@ class Engine : public Position{
     void eraseKillers();
 
     void sortMoves(int, int);
+
+    void pickMove(int, int, int);
+
     int alphabeta(int, int, int, int, bool);
 
         double rfpCoef[2] = {3.0, 67.0};

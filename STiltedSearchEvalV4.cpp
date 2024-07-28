@@ -193,7 +193,23 @@ void Engine::sortMoves(int nc, int ply){
     }
 }
 
-int Engine::quiesce(int alpha, int beta, int lply){
+void Engine::pickMove(int si, int ei, int ply){
+    int ibest = si;
+    for (int i = si + 1; i < ei; i++){
+        
+        if (mprior[ply][i] > mprior[ply][ibest]){
+            ibest = i;
+        }
+        
+        
+        //bool better = mprior[ply][i] > mprior[ply][ibest];
+        //ibest += (i - ibest) * better;
+    }
+    std::swap(mprior[ply][ibest], mprior[ply][si]);
+    std::swap(moves[ply][ibest], moves[ply][si]);
+}
+
+int Engine::quiesce(int alpha, int beta, int ply){
     //int failSoft = (scores[toMove] - scores[!toMove]);
     int failSoft = evaluate();
 
@@ -205,33 +221,34 @@ int Engine::quiesce(int alpha, int beta, int lply){
         alpha = failSoft;
     }
 
-    int nc = fullMoveGen(64 + lply, 1);
+    int lply = 64 + ply;
+    int nc = fullMoveGen(lply, 1);
 
     //MVVLVA
     /*
     for (int ii = 0; ii < nc; ii++){ //generate move priorities for all
-        mprior[64 + lply][ii] = -((moves[64 + lply][ii] >> 16) & 7); //less valuable = better (-a)
-        mprior[64 + lply][ii] += (10 * ((moves[64 + lply][ii] >> 13) & 7)); //10v
+        mprior[lply][ii] = -((moves[lply][ii] >> 16) & 7); //less valuable = better (-a)
+        mprior[lply][ii] += (10 * ((moves[lply][ii] >> 13) & 7)); //10v
     }
     */
 
-    for (int ii = 0; ii < nc; ii++){
-        mprior[64 + lply][ii] = (1 << 20) + ((moves[64 + lply][ii] >> 16) & 7U) - (((moves[64 + lply][ii] >> 13) & 7U) << 9);
-    }
+    //for (int ii = 0; ii < nc; ii++){
+    //    mprior[lply][ii] = (1 << 20) + ((moves[lply][ii] >> 16) & 7U) - (((moves[lply][ii] >> 13) & 7U) << 9);
+    //}
     
 
-    sortMoves(nc, 64 + lply);
+    sortMoves(nc, lply);
 
     for (int i = 0; i < nc; i++){
-        makeMove(moves[64 + lply][i], true);
+        makeMove(moves[lply][i], true);
         endHandle();
         if (isChecked(!toMove) or kingBare()){
-            unmakeMove(moves[64 + lply][i], true);
+            unmakeMove(moves[lply][i], true);
             continue;
         }
 
-        score = -quiesce(-beta, -alpha, lply + 1);
-        unmakeMove(moves[64 + lply][i], true); //take back the move
+        score = -quiesce(-beta, -alpha, ply + 1);
+        unmakeMove(moves[lply][i], true); //take back the move
         
         if (score >= beta){
             return beta;
@@ -344,11 +361,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     
     sortMoves(numMoves, ply);
 
-    for (int kk = ply + 1; kk < 64; kk++){
-        numKillers[kk] = 0;
-    }
-
-    uint32_t localBestMove = 0; //for TT updating
+    Move localBestMove = 0; //for TT updating
     //bool isAllNode = true;
     bool searchPv = true;
 
@@ -356,7 +369,8 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     bool boringMove;
 
     for (int i = 0; i < numMoves; i++){
-        //std::cout << "considering: " << moveToAlgebraic(moves[ply][i]) << '\t' << mprior[ply][i] << '\n';
+        //pickMove(i, numMoves, ply);
+        //if (ply == 0) { std::cout << "considering: " << moveToAlgebraic(moves[ply][i]) << '\t' << mprior[ply][i] << '\n';};
         //printMoveAsBinary(moves[ply][i]);
         makeMove(moves[ply][i], true); 
         endHandle();
@@ -398,19 +412,14 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
             //std::cout << "cut " << moveToAlgebraic(moves[ply][i]) << '\n';
             
             //Killer Move Updating and History Updating
-            if ((moves[ply][i] & 4096U) ^ (4096U) and (ply > 0)){
-                if (numKillers[ply] = 2){
-                    std::swap(killers[ply][0], killers[ply][1]);
-                    killers[ply][1] = moves[ply][i];
-                } else {
-                    killers[ply][numKillers[ply]] = moves[ply][i];
-                    numKillers[ply]++;
-                }
+            if ((moves[ply][i] & 4096U) ^ (4096U)){
+                killers[ply][0] = killers[ply][1];
+                killers[ply][1] = moves[ply][i];
 
                 uint8_t pstp = (moves[ply][i] >> 16) & 7U;
                 uint8_t edsq = (moves[ply][i] >> 6) & 63U;
 
-                bool hexc = historyTable[toMove][pstp][edsq] > (1 << 20);
+                bool hexc = historyTable[toMove][pstp][edsq] > 0;
                 historyTable[toMove][pstp][edsq] += (depth * depth * !hexc);
             }            
 
