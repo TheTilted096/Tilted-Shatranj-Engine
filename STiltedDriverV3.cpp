@@ -13,7 +13,7 @@ int main(){
 
     Engine engine;
 
-    std::string versionID = "Tilted Shatranj 27";
+    std::string versionID = "Tilted Shatranj 27-Mobility";
     std::string command, param;
 
     std::cout << "0000000000    0000000000    00            0000000000    0000000000    000000  \n";
@@ -107,7 +107,11 @@ int main(){
             engine.printAllBitboards();
         }
         if (command == "testfeature"){
-            engine.printMoveAsBinary(1U);
+            for (int i = 0; i < 2; i++){
+                for (int j = 0; j < 5; j++){
+                    engine.printAsBitboard(engine.atktbl[i][j]);
+                }
+            }
         }
         
     }

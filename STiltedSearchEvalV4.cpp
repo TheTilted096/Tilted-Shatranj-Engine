@@ -50,10 +50,47 @@ int Position::evaluateScratch(){
 }
 
 int Position::evaluate(){
-    int mdiff = scores[toMove] - scores[!toMove];
-    int ediff = eScores[toMove] - eScores[!toMove];
+    //int mdiff = scores[toMove] - scores[!toMove];
+    //int ediff = eScores[toMove] - eScores[!toMove];
+
+    int mdiff = scores[toMove] + mobil[toMove] - scores[!toMove] - mobil[!toMove];
+    int ediff = eScores[toMove] + emobil[toMove] - eScores[!toMove] - emobil[!toMove];
 
     return (mdiff * inGamePhase + ediff * (Position::totalGamePhase - inGamePhase)) / Position::totalGamePhase;
+}
+
+void Position::beginAttackTable(){
+    Bitboard pcs;
+    int f;
+
+    pcs = sides[!toMove] & pieces[5]; //pawns
+    atktbl[!toMove][4] = 0ULL; //set first attack table to empty
+    while (pcs){ //for each pawn, OR in attacked squares
+        f = __builtin_ctzll(pcs);
+        atktbl[!toMove][4] |= plt[!toMove][f];
+        pcs ^= (1ULL << f);
+    }
+
+    for (int ll = 4; ll > 1; ll--){ //for each leaper type
+        pcs = sides[!toMove] & pieces[ll]; //for each leaper
+        atktbl[!toMove][ll - 1] = atktbl[!toMove][ll]; //carry over previous attacks
+        while (pcs){ //for each piece, OR in leaper attack set
+            f = __builtin_ctzll(pcs);
+            atktbl[!toMove][ll - 1] |= llt[ll][f];
+            pcs ^= (1ULL << f);
+        }
+    }
+
+    pcs = sides[!toMove] & pieces[1]; //rooks
+    atktbl[!toMove][0] = atktbl[!toMove][1];
+    while (pcs){
+        f = __builtin_ctzll(pcs);
+        atktbl[!toMove][0] |= RookBoards[RookOffset[f] + _pext_u64(sides[0] | sides[1], RookMasks[f])];
+        pcs ^= (1ULL << f);
+    }
+
+    f = __builtin_ctzll(sides[!toMove] & pieces[0]);
+    atktbl[!toMove][0] |= llt[0][f];
 }
 
 TTentry::TTentry(){
@@ -91,6 +128,7 @@ void TTentry::print(){
 
 
 Engine::Engine(){
+    //std::cout << "Engine Constructed\n";
     mnodes= ~0ULL;
     
     thinkLimit = 0xFFFFFFFF;
@@ -154,7 +192,13 @@ void Engine::eraseKillers(){
 }
 
 void Engine::copyEval(EvalVars e){
+    /*
+    std::cout << "attempt copyEval\n";
+    std::cout << e.rc << '\n';
+    std::cout << e.aw << '\n';
+    */
     if (e.rc != nullptr){
+        //std::cout << "rfpparams copied\n";
         rfpCoef[0] = e.rc[0];
         rfpCoef[1] = e.rc[1];
     }
@@ -463,12 +507,13 @@ int Engine::search(uint32_t thinkTime, int mdepth, uint64_t maxNodes, bool outpu
     int alpha = -50000;
     int beta = 50000;
 
-    uint32_t cbMove; //best move yielded from latest complete search
+    Move cbMove = 0; //best move yielded from latest complete search
     int cbEval = 0; //eval of latest complete search
     uint64_t prevNodes; //nodes consumed in total
 
     eraseHistoryTable();
     evaluateScratch();
+    beginAttackTable();
 
     int prevEval;
     bool windowFail;

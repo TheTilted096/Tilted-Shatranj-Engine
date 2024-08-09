@@ -71,7 +71,7 @@ int main(int argc, char** argv){
     int numPasses = stoi(std::string(argv[1]));
 
     //params: #games, #num moves, mnodes, lb, ub, #threads, start ID
-    int testParams[7] = {stoi((std::string) argv[2]), 10, stoi((std::string) argv[3]), 0, 0, stoi((std::string) argv[4]), 1};
+    int testParams[7] = {stoi((std::string) argv[2]), 10, stoi((std::string) argv[3]), 0, 140, stoi((std::string) argv[4]), 1};
 
     for (int k = 0; k < numPasses; k++){
         std::cout << "\n=== PASS " << k + 1 << " ===\n";

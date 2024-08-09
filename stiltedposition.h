@@ -16,11 +16,14 @@ class Position : public Bitboards{
         int mprior[96][128];
 
         int scores[2], eScores[2];
+        int mobil[2], emobil[2];
         int thm, chm[1024];
         uint64_t zhist[1024];
         
         int historyTable[2][6][64];
         int inGamePhase;
+
+        Bitboard atktbl[2][5];
 
         uint64_t nodes;
 
@@ -233,6 +236,21 @@ class Position : public Bitboards{
         {'k', 'r', 'n', 'q', 'b', 'p', 'x',
 			'K', 'R', 'N', 'Q', 'B', 'P', 'X'};
 
+        static constexpr int mIndx[5] = {0, 9, 24, 33, 38};
+        int mobVals[43] =
+        {-20, -10, 0, 0, 0, 0, 0, 0, 0, 
+        -25, -20, -15, -10, -5, 0, 0, 0, 0, 5, 10, 15, 15, 20, 25,
+        -20, -15, -10, -5, 0, 5, 10, 20, 30,
+        -15, -10, 0, 5, 10,
+        -10, -5, 0, 5, 10};
+
+        int mobValsE[43] = 
+        {-50, -40, -20, -10, 0, 10, 20, 30, 35,
+        -40, -30, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25, 30, 35, 40,
+        -40, -30, -10, 0, 10, 20, 25, 30, 35,
+        -15, -10, 0, 5, 10,
+        -10, -5, 0, 5, 10};
+
         int mps[6][64] = 
         {{-38, -55, -15, -5, -5, -15, -25, -35, 
         -55, -18, 15, 15, 15, 15, 5, -25, 
@@ -348,6 +366,8 @@ class Position : public Bitboards{
         int countReps();
         int evaluate();
         int evaluateScratch();
+
+        void beginAttackTable();
 
         void setStartPos();
         int fullMoveGen(int, bool);

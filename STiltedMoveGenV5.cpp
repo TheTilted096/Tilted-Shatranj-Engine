@@ -247,6 +247,11 @@ int Position::fullMoveGen(int ply, bool cpex){
     Bitboard occ = sides[0] | sides[1];
     int f, p;
 
+    mobil[toMove] = 0; 
+    emobil[toMove] = 0;
+    Bitboard sfst;
+    int scnt;
+
     //pawns
     //deal with pawn pushes first
     pcs = sides[toMove] & pieces[5];
@@ -267,9 +272,14 @@ int Position::fullMoveGen(int ply, bool cpex){
         totalMoves++;
     }
 
+    atktbl[toMove][4] = 0ULL; //empty out pawn attack table;
+
     //then pawn captures
     while (pcs){
         f = __builtin_ctzll(pcs); //get least bit (starting square)
+
+        atktbl[toMove][4] |= plt[toMove][f]; //put pawn attacks in own attack table
+
         mvst = plt[toMove][f] & sides[!toMove]; //pawn captures from that square
         while (mvst){ //for each set bit
             p = __builtin_ctzll(mvst); //get the least bit (destination)
@@ -301,9 +311,19 @@ int Position::fullMoveGen(int ply, bool cpex){
 
     //leapers
     for (int ll = 4; ll > 1; ll--){
+        atktbl[toMove][ll - 1] = atktbl[toMove][ll]; //next table includes lower value attacks
+
         pcs = sides[toMove] & pieces[ll];
         while (pcs){
             f = __builtin_ctzll(pcs); //starting square
+
+            atktbl[toMove][ll - 1] |= llt[ll][f]; //put leapers in own attack table
+
+            sfst = llt[ll][f] & ~(atktbl[!toMove][ll] | sides[toMove]); //safeset is squares not occupied friendly or enemy attacked
+            scnt = __builtin_popcountll(sfst);
+            mobil[toMove] += mobVals[mIndx[ll] + scnt];
+            emobil[toMove] += mobValsE[mIndx[ll] + scnt];
+
             //captures first
             xset = llt[ll][f] & sides[!toMove];
             mvst = !cpex * ((llt[ll][f] & ~sides[toMove]) ^ xset); //non-captures
@@ -355,10 +375,20 @@ int Position::fullMoveGen(int ply, bool cpex){
     }
 
     //rooks
+    atktbl[toMove][0] = atktbl[toMove][1]; //squares king is worried about
+
     pcs = sides[toMove] & pieces[1];
     while (pcs){ //for each rook
         f = __builtin_ctzll(pcs); //get starting square
         Bitboard rtb = RookBoards[RookOffset[f] + _pext_u64(occ, RookMasks[f])]; //get attack board
+
+        atktbl[toMove][0] |= rtb; //put rook attacks into table
+
+        sfst = rtb & ~(atktbl[!toMove][1] | sides[toMove]);
+        scnt = __builtin_popcountll(sfst);
+        mobil[toMove] += mobVals[mIndx[1] + scnt];
+        emobil[toMove] += mobValsE[mIndx[1] + scnt];
+
         //Bitboard rtb = hqRookAttack(f, occ);
         xset = rtb & sides[!toMove]; //get captures first
         mvst = !cpex * ((rtb & ~sides[toMove]) ^ xset); //non captures
@@ -406,6 +436,14 @@ int Position::fullMoveGen(int ply, bool cpex){
     //King
     pcs = sides[toMove] & pieces[0]; //get king
     f = __builtin_ctzll(pcs); //locate it
+
+    atktbl[toMove][0] |= llt[0][f];
+
+    sfst = llt[0][f] & ~(atktbl[!toMove][0] | sides[toMove]);
+    scnt = __builtin_popcountll(sfst);
+    mobil[toMove] += mobVals[mIndx[0] + scnt];
+    emobil[toMove] += mobValsE[mIndx[0] + scnt];
+
     xset = llt[0][f] & sides[!toMove]; //do captures
     mvst = !cpex * ((llt[0][f] & ~sides[toMove]) ^ xset); //non captures 
     while (xset){
@@ -634,7 +672,7 @@ void Position::readFen(std::string fen){
     pieces[0] = 0ULL; pieces[1] = 0ULL; pieces[2] = 0ULL;
     pieces[3] = 0ULL; pieces[4] = 0ULL; pieces[5] = 0ULL;
 
-    uint8_t sq = 0, sym, ind = -1;
+    uint8_t sq = 0, sym = -1, ind = -1;
     while (sq < 64){
         ind++;
         for (int c = 0; c < 21; c++){
