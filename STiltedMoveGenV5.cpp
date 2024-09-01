@@ -139,6 +139,22 @@ void Bitboards::printAllBitboards(){
     std::cout << "toMove: " << toMove << "\n\n";
 }
 
+int* Bitboards::bitboardToList(Bitboard bb){
+    int nums = __builtin_popcountll(bb);
+    int* list = new int[nums + 1]; 
+    list[0] = nums;
+
+    int f;
+
+    for (int i = 0; i < nums; i++){
+        f = __builtin_ctzll(bb);
+        list[i + 1] = f;
+        bb ^= (1ULL << f);
+    }
+
+    return list;
+}
+
 Bitboard Bitboards::hqRookAttack(int& sq, Bitboard occ){
     Bitboard forward = occ & (0x0101010101010101ULL << (sq & 7));
     Bitboard reverse = __builtin_bswap64(forward);

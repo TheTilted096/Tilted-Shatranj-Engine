@@ -71,6 +71,7 @@ class Engine : public Position{
         void copyEval(EvalVars);
 
         int quiesce(int, int, int);
+        double preciseQuiesce(double, double, int);
         int search(uint32_t, int, uint64_t, bool);
 
         ~Engine();

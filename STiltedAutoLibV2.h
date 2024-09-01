@@ -32,7 +32,7 @@ class Game{
         static int fenHalfMove(std::string);
 
         static uint64_t maxNodes;
-        static int beginReport, stopReport;
+        static int beginReport, stopReport, endReport;
         static std::ofstream outFile;
         static std::string filename;
 };

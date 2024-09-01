@@ -226,4 +226,6 @@ class Bitboards{
         static std::string moveToAlgebraic(Move&);
         static void printMoveAsBinary(Move);
         static void printAsBitboard(Bitboard);
+
+        static int* bitboardToList(Bitboard);
 };

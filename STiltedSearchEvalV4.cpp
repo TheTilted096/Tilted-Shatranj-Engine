@@ -59,38 +59,151 @@ int Position::evaluate(){
     return (mdiff * inGamePhase + ediff * (Position::totalGamePhase - inGamePhase)) / Position::totalGamePhase;
 }
 
-void Position::beginAttackTable(){
+void Position::beginAttacks(bool sd){
     Bitboard pcs;
     int f;
-
-    pcs = sides[!toMove] & pieces[5]; //pawns
-    atktbl[!toMove][4] = 0ULL; //set first attack table to empty
-    while (pcs){ //for each pawn, OR in attacked squares
+    pcs = sides[sd] & pieces[5]; //for each of our pawns
+    atktbl[sd][4] = 0ULL; //empty pawn attacks
+    while (pcs){ 
         f = __builtin_ctzll(pcs);
-        atktbl[!toMove][4] |= plt[!toMove][f];
+        atktbl[sd][4] |= plt[sd][f]; //or in our pawn attacks
         pcs ^= (1ULL << f);
     }
 
-    for (int ll = 4; ll > 1; ll--){ //for each leaper type
-        pcs = sides[!toMove] & pieces[ll]; //for each leaper
-        atktbl[!toMove][ll - 1] = atktbl[!toMove][ll]; //carry over previous attacks
-        while (pcs){ //for each piece, OR in leaper attack set
+    for (int ll = 4; ll > 1; ll--){ //for each leaper
+        pcs = sides[sd] & pieces[ll]; //get leapers
+        atktbl[sd][ll - 1] = atktbl[sd][ll]; //carry over previous attacks
+        while (pcs){
             f = __builtin_ctzll(pcs);
-            atktbl[!toMove][ll - 1] |= llt[ll][f];
+            atktbl[sd][ll - 1] |= llt[ll][f]; //or in attack set
             pcs ^= (1ULL << f);
         }
     }
 
-    pcs = sides[!toMove] & pieces[1]; //rooks
-    atktbl[!toMove][0] = atktbl[!toMove][1];
-    while (pcs){
-        f = __builtin_ctzll(pcs);
-        atktbl[!toMove][0] |= RookBoards[RookOffset[f] + _pext_u64(sides[0] | sides[1], RookMasks[f])];
+    pcs = sides[sd] & pieces[1]; //rooks
+    atktbl[sd][0] = atktbl[sd][1]; //carry over
+    while (pcs){ 
+        f = __builtin_ctzll(pcs); //or attacks
+        atktbl[sd][0] |= RookBoards[RookOffset[f] + _pext_u64(sides[0] | sides[1], RookMasks[f])];
         pcs ^= (1ULL << f);
     }
 
-    f = __builtin_ctzll(sides[!toMove] & pieces[0]);
-    atktbl[!toMove][0] |= llt[0][f];
+    f = __builtin_ctzll(sides[sd] & pieces[0]); //our king
+    atktbl[sd][0] |= llt[0][f];
+}
+
+void Position::beginMobility(bool sd){
+    beginAttacks(!sd);
+
+    mobil[sd] = 0; emobil[sd] = 0;
+
+    Bitboard pcs, sfst;
+    int scnt, f;
+
+    for (int ll = 4; ll > 1; ll--){
+        pcs = sides[sd] & pieces[ll];
+        while (pcs){
+            f = __builtin_ctzll(pcs);
+
+            sfst = llt[ll][f] & ~(atktbl[!sd][ll] | sides[sd]);
+            scnt = __builtin_popcountll(sfst);
+            mobil[sd] += mobVals[mIndx[ll] + scnt];
+            emobil[sd] += mobValsE[mIndx[ll] + scnt];
+
+            pcs ^= (1ULL << f);            
+        }
+    }
+
+    pcs = sides[sd] & pieces[1];
+    while (pcs){
+        f = __builtin_ctzll(pcs);
+        Bitboard rtb = RookBoards[RookOffset[f] + _pext_u64(sides[0] | sides[1], RookMasks[f])];
+
+        sfst = rtb & ~(atktbl[!sd][1] | sides[sd]);
+        scnt = __builtin_popcountll(sfst);
+        mobil[sd] += mobVals[mIndx[1] + scnt];
+        emobil[sd] += mobValsE[mIndx[1] + scnt];
+
+        pcs ^= (1ULL << f);
+    }
+
+    f = __builtin_ctzll(sides[sd] & pieces[0]);
+    sfst = llt[0][f] & ~(atktbl[!sd][0] | sides[sd]);
+    scnt = __builtin_popcountll(sfst);
+    mobil[sd] += mobVals[mIndx[0] + scnt];
+    emobil[sd] += mobValsE[mIndx[0] + scnt];
+}
+
+int* Position::availableMobs(){
+    beginMobility(true); beginMobility(false);
+
+    Bitboard pcs, sfst, mvst; //pieces, safeset, moveset
+    int scnt, f; //safe count, f = bit
+    bool ca; //can add
+    int* ml = new int[44]; //creatl ist
+    ml[0] = 0; //first index is number of elements
+
+    for (int pp = 0; pp < 5; pp++){
+        pcs = pieces[pp] & sides[1]; //white
+
+        while (pcs){ //for each white piece
+            f = __builtin_ctzll(pcs); //get bit and moveset
+            if (pp == 1){ //if rook
+                mvst = RookBoards[RookOffset[f] + _pext_u64(sides[0] | sides[1], RookMasks[f])];
+            } else {
+                mvst = llt[pp][f];
+            }
+
+            sfst = mvst & ~(atktbl[0][pp] | sides[1]); //safeset = moveset and not (attacked or occupied)
+            scnt = __builtin_popcountll(sfst) + mIndx[pp];
+
+            ca = true; //assume can add
+            for (int c = 0; c < ml[0]; c++){ //for each element in list
+                if (scnt == ml[c + 1]){ //
+                    ca = false;
+                    break;
+                }
+            }
+
+            if (ca){
+                ml[0]++;
+                ml[ml[0]] = scnt;
+            }
+
+            pcs ^= (1ULL << f);
+        }
+    
+        pcs = pieces[pp] & sides[0]; //black
+
+        while (pcs){ //for each white piece
+            f = __builtin_ctzll(pcs); //get bit and moveset
+            if (pp == 1){ //if rook
+                mvst = RookBoards[RookOffset[f] + _pext_u64(sides[0] | sides[1], RookMasks[f])];
+            } else {
+                mvst = llt[pp][f];
+            }
+
+            sfst = mvst & ~(atktbl[1][pp] | sides[0]); //safeset = moveset and not (attacked or occupied)
+            scnt = __builtin_popcountll(sfst) + mIndx[pp];
+
+            ca = true; //assume can add
+            for (int c = 0; c < ml[0]; c++){ //for each element in list
+                if (scnt == ml[c + 1]){ //
+                    ca = false;
+                    break;
+                }
+            }
+
+            if (ca){
+                ml[0]++;
+                ml[ml[0]] = scnt;
+            }
+
+            pcs ^= (1ULL << f);
+        }
+    }
+
+    return ml;    
 }
 
 TTentry::TTentry(){
@@ -292,6 +405,46 @@ int Engine::quiesce(int alpha, int beta, int ply){
         }
 
         score = -quiesce(-beta, -alpha, ply + 1);
+        unmakeMove(moves[lply][i], true); //take back the move
+        
+        if (score >= beta){
+            return beta;
+        }
+        if (score > alpha){ //yay best move
+            alpha = score; // alpha acts like max in MiniMax  
+        }   
+    }
+    return alpha;    
+}
+
+double Engine::preciseQuiesce(double alpha, double beta, int ply){
+    int mdiff = scores[toMove] + mobil[toMove] - scores[!toMove] - mobil[!toMove];
+    int ediff = eScores[toMove] + emobil[toMove] - eScores[!toMove] - emobil[!toMove];
+
+    double failSoft = (mdiff * inGamePhase + ediff * (Position::totalGamePhase - inGamePhase)) / ((double) Position::totalGamePhase);
+
+    double score = -29000.0;
+    if (failSoft >= beta){
+        return beta;
+    }
+    if (alpha < failSoft){
+        alpha = failSoft;
+    }
+
+    int lply = 64 + ply;
+    int nc = fullMoveGen(lply, 1);    
+
+    sortMoves(nc, lply);
+
+    for (int i = 0; i < nc; i++){
+        makeMove(moves[lply][i], true);
+        endHandle();
+        if (isChecked(!toMove) or kingBare()){
+            unmakeMove(moves[lply][i], true);
+            continue;
+        }
+
+        score = -preciseQuiesce(-beta, -alpha, ply + 1);
         unmakeMove(moves[lply][i], true); //take back the move
         
         if (score >= beta){
@@ -513,7 +666,9 @@ int Engine::search(uint32_t thinkTime, int mdepth, uint64_t maxNodes, bool outpu
 
     eraseHistoryTable();
     evaluateScratch();
-    beginAttackTable();
+    
+    beginMobility(true);
+    beginMobility(false);
 
     int prevEval;
     bool windowFail;

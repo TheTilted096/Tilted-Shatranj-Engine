@@ -367,7 +367,10 @@ class Position : public Bitboards{
         int evaluate();
         int evaluateScratch();
 
-        void beginAttackTable();
+        void beginAttacks(bool);
+        void beginMobility(bool);
+
+        int* availableMobs();
 
         void setStartPos();
         int fullMoveGen(int, bool);

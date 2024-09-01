@@ -11,6 +11,7 @@ TheTilted096
 uint64_t Game::maxNodes;
 int Game::beginReport;
 int Game::stopReport;
+int Game::endReport;
 std::ofstream Game::outFile;
 std::string Game::filename;
 
@@ -116,7 +117,7 @@ void Game::report(int id){
     outputFile << "Result: " << gameResult / 2.0 << '\n';
     outputFile << "StartPos: " << positions[0] << '\n';
 
-    for (int gg = beginReport; gg <= gameClock; gg++){
+    for (int gg = beginReport; gg <= gameClock - endReport; gg++){
         if (fenHalfMove(positions[gg]) <= stopReport){
             outputFile << positions[gg] << '\n';
         }
@@ -145,6 +146,7 @@ Match::Match(int* gameInfo, int* reporting, EvalVars* eptr, std::string ofile){
 
     Game::beginReport = reporting[1];
     Game::stopReport = reporting[2];
+    Game::endReport = reporting[3];
 
     openingMoves = reporting[0];
 
@@ -171,7 +173,7 @@ void Match::playing(bool forward, bool output, int threadID){
         } else { //otherwise, construct game, save ID, and increment game counter
             delete gameptr;
 
-            gameptr = new Game(book[gamesPlayed], evals[!forward], evals[forward]);
+            gameptr = new Game(book[gamesPlayed], evals[forward], evals[!forward]);
             currID = gamesPlayed;
             if (output){ std::cout << "(Thread " << threadID << ") Started Game " << currID << '\n'; }
             gamesPlayed++;
@@ -182,7 +184,7 @@ void Match::playing(bool forward, bool output, int threadID){
 
         gameBlock.lock(); //ensure no conflict while outputting
         gameptr->report(currID); 
-        dirScores[!forward] += gameptr->gameResult;
+        dirScores[forward] += gameptr->gameResult;
         if (output){
             std::cout << "(Thread " << threadID << ") Finished Game " << currID 
                 << "  (" << gameptr->gameResult / 2.0 << ")\n";
@@ -196,6 +198,8 @@ std::thread Match::playThread(bool forward, bool output, int threadID){
 }
 
 int Match::runMatch(bool forward, bool output){
+    gamesPlayed = 0;
+    dirScores[forward] = 0;
     for (int k = 0; k < numThreads; k++){
         workers[k] = playThread(forward, output, k);
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -205,7 +209,7 @@ int Match::runMatch(bool forward, bool output){
         workers[l].join();
     }
 
-    return dirScores[!forward];
+    return dirScores[forward];
 }
 
 std::string* Match::makeOpeningBook(int nb, int nm){
