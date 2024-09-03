@@ -13,7 +13,7 @@ int main(){
 
     Engine engine;
 
-    std::string versionID = "Tilted Shatranj 27-Mob2";
+    std::string versionID = "Tilted Shatranj 28";
     std::string command, param;
 
     std::cout << "0000000000    0000000000    00            0000000000    0000000000    000000  \n";

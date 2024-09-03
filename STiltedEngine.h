@@ -70,6 +70,7 @@ class Engine : public Position{
         void newGame();
         void copyEval(EvalVars);
 
+        int see(Move);
         int quiesce(int, int, int);
         double preciseQuiesce(double, double, int);
         int search(uint32_t, int, uint64_t, bool);

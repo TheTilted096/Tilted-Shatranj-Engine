@@ -366,6 +366,10 @@ void Engine::pickMove(int si, int ei, int ply){
     std::swap(moves[ply][ibest], moves[ply][si]);
 }
 
+int Engine::see(Move mv){
+    return 0;
+}
+
 int Engine::quiesce(int alpha, int beta, int ply){
     //int failSoft = (scores[toMove] - scores[!toMove]);
     int failSoft = evaluate();
