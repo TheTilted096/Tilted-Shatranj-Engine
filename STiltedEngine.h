@@ -39,7 +39,7 @@ class Engine : public Position{
     uint64_t mnodes;
 
     TTentry* ttable;
-    uint32_t killers[64][2];
+    Move killers[64][2];
 
     bool timeKept;
     int64_t thinkLimit; //think time limit
@@ -62,6 +62,8 @@ class Engine : public Position{
         int lmrReduces[64][128]; 
         double lmrCoef[2] = {-0.1, 0.4};
 
+        double seeVals[6] = {20000.0, 650.0, 400.0, 200.0, 150.0, 100.0};
+
         Engine();
 
         Move getMove();
@@ -70,7 +72,7 @@ class Engine : public Position{
         void newGame();
         void copyEval(EvalVars);
 
-        int see(Move);
+        bool see(Move);
         int quiesce(int, int, int);
         double preciseQuiesce(double, double, int);
         int search(uint32_t, int, uint64_t, bool);

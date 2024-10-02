@@ -629,7 +629,7 @@ uint64_t Position::perft(int depth, int ply){
 
         if (ply == 0) {
             std::cout << moveToAlgebraic(moves[ply][i]) << ": " << additional << '\n';
-            // printMoveAsBinary(moves[ply][i]);
+             printMoveAsBinary(moves[ply][i]);
         }
 
         pnodes += additional;

@@ -51,7 +51,7 @@ Tuner::Tuner(int* specs, std::string* fnames){
     if (fnames[0] == "rfp"){
         numParams = 2;
     } else if (fnames[0] == "asp"){
-        numParams = 4;
+        numParams = 5;
     }
 
     theta = new double[numParams];

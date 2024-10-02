@@ -13,7 +13,7 @@ int main(){
 
     Engine engine;
 
-    std::string versionID = "Tilted Shatranj 28";
+    std::string versionID = "Tilted Shatranj 28-draws";
     std::string command, param;
 
     std::cout << "0000000000    0000000000    00            0000000000    0000000000    000000  \n";
@@ -107,15 +107,17 @@ int main(){
             engine.printAllBitboards();
         }
         if (command == "testfeature"){
-            engine.beginAttacks(true);
-            engine.beginAttacks(false);
 
-            for (int i = 0; i < 2; i++){
-                for (int j = 0; j < 5; j++){
-                    engine.printAsBitboard(engine.atktbl[i][j]);
-                }
-            }
+            //testing SEE
 
+            //readFEN
+            //engine.readFen("kq2R3/q3R3/4R3/4r3/RRRrprRR/4R3/4r2Q/4r1QK w - - 0 1");
+            //engine.perft(1, 0);        
+
+            //Move e3e4 = 0b00000000100100011011100100101100;  
+            //bool good = engine.see(e3e4);
+            //std::cout << "SEE: " << good << '\n';
+        
         }
         
     }

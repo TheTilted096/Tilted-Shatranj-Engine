@@ -366,8 +366,213 @@ void Engine::pickMove(int si, int ei, int ply){
     std::swap(moves[ply][ibest], moves[ply][si]);
 }
 
-int Engine::see(Move mv){
+/*
+bool Engine::see(Move mv, double min){
+    uint8_t stsq = mv & 63U; //start square 
+    uint8_t edsq = (mv >> 6) & 63U; //end square
+    bool bkrk = (1ULL << edsq) & 0xFF000000000000FFULL; //square is on back rank
+    bool prmt = (mv >> 19) & 1U; //is promoting
+    const double prgn = seeVals[3] - seeVals[5];
+
+    uint8_t ao = (mv >> 16) & 7U;  // initial agressor
+    uint8_t vo = (mv >> 13) & 7U;  // initial victim
+
+    //double gain = seeVals[vo]; // gain begins as initial victim from perspective of toMove (aggressor)
+    seeGains[0] = seeVals[vo] + prmt * prgn;
+    double stdn = seeVals[ao - (prmt << 1)]; //piece standing on square
+
+    if (seeGains[0] - stdn >= min){ //if piece was hanging
+        return true;
+    }
+
+    //initial material check didn't work, time to search all the way
+
+    Bitboard rks = pieces[1]; //save rook bitboard (rook bits are removed)
+    Bitboard occ = sides[0] | sides[1]; //occupied squares
+
+    bool istm = !toMove; // internal side to move
+
+    uint32_t attl[2] = {0U, 0U}; //u32 that represent attackers
+    int slva[2]; // index of current least valued aggressor
+
+    //get attackers and insert them into the u32 (as a list)
+    attl[0] |= (__builtin_popcountll(plt[1][edsq] & pieces[5] & sides[0]) << 20);
+    attl[1] |= (__builtin_popcountll(plt[0][edsq] & pieces[5] & sides[1]) << 20);
+
+    Bitboard rl;
+    for (int i = 4; i > 1; i--){
+        rl = llt[i][edsq] & pieces[i];
+        attl[0] |= (__builtin_popcountll(rl & sides[0]) << (i << 2));
+        attl[1] |= (__builtin_popcountll(rl & sides[1]) << (i << 2));
+    }
+    
+    Bitboard rlkp = RookBoards[RookOffset[edsq] + _pext_u64(occ, RookMasks[edsq])] & pieces[1]; //rook-look up
+    attl[0] |= (__builtin_popcountll(rlkp & sides[0]) << 4);
+    attl[1] |= (__builtin_popcountll(rlkp & sides[1]) << 4);
+
+    rl = llt[0][edsq] & pieces[0];
+    attl[0] |= (__builtin_popcountll(rl & sides[0]));
+    attl[1] |= (__builtin_popcountll(rl & sides[1]));    
+
+    if ((seeGains[0] > min) and (attl[!toMove] == 0U)){ //if hanging
+        return true;
+    }
+
+    //before playing own move:
+    // winning if
+    // (gain > min)  OR  (opponent has no attackers AND gain + stdn > min)
+
+    // losing if
+    // (no attackers AND gain < min) or (has attackers AND gain + stdn < min)
+
+    //istm will also keep track of the winning side
+
+    while (true){
+
+    }
+
+
+    
     return 0;
+}
+*/
+
+/*
+Move Representation:
+
+0000 0000 0000 0000 000 0 000000 000000
+
+0-5: start square
+6-11: end square
+
+12: Capture
+13-15: Captured Type
+16-18: Piece Type Moved
+19: Promotion
+20-22: Piece End Type
+23: Color
+*/
+
+bool Engine::see(Move mv){
+    //check if piece is lower value than aggressor
+
+    uint8_t vo = (mv >> 13) & 7U;
+    uint8_t ao = (mv >> 16) & 7U;
+
+    //aggressor less valuable than victim
+    if (seeVals[vo] - seeVals[ao] >= 0.0){
+        return true;
+    }
+
+    //get all the attackers
+
+    uint32_t attl[2] = {0U, 0U}; //attacker list
+
+    uint8_t edsq = (mv >> 6) & 63U; //end square
+    uint8_t stsq = mv & 63U;
+
+    Bitboard rks = pieces[1]; //original rook bitboard
+    Bitboard occ = sides[0] | sides[1]; // occupancy bitboard
+    Bitboard sqbb = (1ULL << stsq); // end square as bitboard
+
+    pieces[ao] ^= sqbb; //remove attacker from consideration
+    occ ^= sqbb;
+
+    //store every attacker into u32 lists.
+    attl[0] |= (__builtin_popcountll(plt[1][edsq] & pieces[5] & sides[0]) << 20);
+    attl[1] |= (__builtin_popcountll(plt[0][edsq] & pieces[5] & sides[1]) << 20);
+
+    Bitboard rl;
+    for (int i = 4; i > 1; i--){
+        rl = llt[i][edsq] & pieces[i];
+        attl[0] |= (__builtin_popcountll(rl & sides[0]) << (i << 2));
+        attl[1] |= (__builtin_popcountll(rl & sides[1]) << (i << 2));
+    }
+    
+    Bitboard rlkp = RookBoards[RookOffset[edsq] + _pext_u64(occ, RookMasks[edsq])] & pieces[1]; //rook-look up
+    attl[0] |= (__builtin_popcountll(rlkp & sides[0]) << 4);
+    attl[1] |= (__builtin_popcountll(rlkp & sides[1]) << 4);
+
+    rl = llt[0][edsq] & pieces[0];
+    attl[0] |= (__builtin_popcountll(rl & sides[0]));
+    attl[1] |= (__builtin_popcountll(rl & sides[1]));    
+
+    //check if piece was hanging
+    if ((attl[!toMove] == 0U) and (seeVals[vo] > 0.0)){
+        pieces[ao] |= sqbb;
+        return true;
+    }
+
+    //std::cout << "Attackers[2]: " << attl[1] << ", " << attl[0] << '\n';
+
+    // main loop
+
+    bool bkrk = (1ULL << edsq) & 0xFF000000000000FFULL; //square is on back rank
+    const double prgn = seeVals[3] - seeVals[5]; // ferz - pawn value
+    bool prmt = (mv >> 19) & 1U; // is promotion
+
+    bool istm = !toMove; //internal-side-to-move
+    uint8_t lva = 6;
+    double stdn = seeVals[ao - (prmt << 1)]; //value of piece standing on square
+
+    Bitboard rpop;
+
+    double gains[2] = {0.0, 0.0};
+    
+    gains[toMove] = seeVals[vo] + prmt * prgn; //initial value of gain
+
+    //std::cout << "gains[2] before loop: " << gains[1] << ", " << gains[0] << '\n';
+
+    while (attl[istm] != 0U){ //while there are still defenders
+        //simulate move
+
+        gains[istm] += stdn; //add captured piece to gain
+
+        lva = (31 - __builtin_clz(attl[istm])) >> 2; //get lva
+        prmt = (lva == 5) and bkrk; //check for promotion
+        stdn = seeVals[lva - (prmt << 1)]; //get new value of piece standing on square
+
+        attl[istm] -= (1U << (lva << 2)); //remove attacking piece
+
+        if (lva == 1){
+            rpop = (1ULL << __builtin_ctzll(rlkp & sides[istm])); // capturing rook bit
+            //std::cout << "rpop: " << __builtin_ctzll(rpop) << '\n';
+            pieces[1] ^= rpop; // remove from rook bitboard
+            occ ^= rpop; // and occupancy bitboard
+            //find other rook attackers without the attacking rook
+            rlkp = RookBoards[RookOffset[edsq] + _pext_u64(occ, RookMasks[edsq])] & pieces[1];
+
+            // input re-calculated rook count
+            attl[0] &= 0xFFFFFF0FU;
+            attl[1] &= 0xFFFFFF0FU;
+            attl[0] |= (__builtin_popcountll(rlkp & sides[0]) << 4);
+            attl[1] |= (__builtin_popcountll(rlkp & sides[1]) << 4);      
+        }
+
+        // check if moving side is winning
+        //if gain > min + standing  OR  gain > min with no defenders        
+        //std::cout << "gains[2] in loop: " << gains[1] << ", " << gains[0] << '\n';
+        //std::cout << "Opponent: " << attl[!istm] << '\n';
+
+        /*
+        std::cout << "attl[!istm]: ";
+        for (int i = 0; i < 6; i++){
+            std::cout << ((attl[!istm] & (0xFU << (i << 2))) >> (i << 2)) << ", ";
+        }
+        std::cout << '\n';
+        */
+
+        if (gains[istm] - gains[!istm] > stdn * (attl[!istm] != 0U)){
+            break;
+        }
+
+        istm = !istm;
+    }
+
+    pieces[1] = rks; //restore original bitboards
+    pieces[ao] |= sqbb;
+
+    return (istm == toMove);
 }
 
 int Engine::quiesce(int alpha, int beta, int ply){
@@ -401,6 +606,10 @@ int Engine::quiesce(int alpha, int beta, int ply){
     sortMoves(nc, lply);
 
     for (int i = 0; i < nc; i++){
+        if (!see(moves[lply][i])){
+            continue;
+        }
+
         makeMove(moves[lply][i], true);
         endHandle();
         if (isChecked(!toMove) or kingBare()){
@@ -468,6 +677,11 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     //3-Fold Check
     int reps = countReps();
     if (reps > 2){
+        return 0;
+    }
+
+    //70-move rule check
+    if (chm[thm] >= 140){
         return 0;
     }
 
