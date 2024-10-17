@@ -163,12 +163,12 @@ void Tuner::step(int st){
     int mf;
     std::cout << "Begin Forward Match\n";
     mf = matchptr->runMatch(true, false);
-    std::cout << "Forward Match Score: " << mf / 2.0 << '\n';
+    std::cout << "Forward Match Score: " << mf / 2.0 << " / " << gamesPerMatch << '\n';
 
     int mb;
     std::cout << "Begin Backwards Match\n";
     mb = matchptr->runMatch(false, false);
-    std::cout << "Backward Match Score: " << mb / 2.0 << '\n';
+    std::cout << "Backward Match Score: " << mb / 2.0 << " / " << gamesPerMatch << '\n';
 
     double margin = (mf + 2 * gamesPerMatch - mb) / (4.0 * gamesPerMatch);
     std::cout << "ThetaPlus Score: " << margin << '\n';
@@ -214,6 +214,8 @@ int main(int argc, char** argv){
         stoi(std::string(argv[3])), 10, 0, 140, 0};
 
     std::string fstuf[3] = {argv[5], argv[4], "fens.txt"};
+
+    std::cout << "sspsa by TheTilted096\nTuning: " << argv[5] << '\n';
     
     Tuner t(stuffs, fstuf);
 

@@ -150,6 +150,7 @@ Match::Match(int* gameInfo, int* reporting, EvalVars* eptr, std::string ofile){
 
     openingMoves = reporting[0];
 
+    std::cout << "Creating Match Book...\n";
     book = makeOpeningBook(gamesToPlay, openingMoves);
 
     evals = eptr;
@@ -213,11 +214,27 @@ int Match::runMatch(bool forward, bool output){
 }
 
 std::string* Match::makeOpeningBook(int nb, int nm){
-    Position g;
+    Engine g;
     std::string* bb = new std::string[nb];
+    int oev;
     for (int i = 0; i < nb; i++){
-        g.setStartPos();
-        g.makeOpening(nm);
+        oev = 10000;
+        while (abs(oev) > 150){
+            g.setStartPos();
+            g.makeOpening(nm);
+
+            g.evaluateScratch();
+            g.beginMobility(true); g.beginMobility(false);
+            oev = g.quiesce(-30000, 30000, 0);
+            
+            /*
+            if (abs(oev) > 150){ 
+                std::cout << "Opening Rejected at Index: " << i + 1 << ": " << g.makeFen() << '\n'; 
+            } else {
+                std::cout << "Success at Index: " << i + 1 << ": " << g.makeFen() << '\n';
+            }
+            */
+        }
         bb[i] = g.makeFen();
     }
 

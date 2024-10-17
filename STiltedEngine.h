@@ -40,6 +40,8 @@ class Engine : public Position{
 
     TTentry* ttable;
     Move killers[64][2];
+    
+    //Move thisLine[64];
 
     bool timeKept;
     int64_t thinkLimit; //think time limit
@@ -62,6 +64,9 @@ class Engine : public Position{
         int lmrReduces[64][128]; 
         double lmrCoef[2] = {-0.1, 0.4};
 
+        double lmpCoef[2] = {10.0, 1.0};
+        double fpCoef[2] = {0.0, 100.0};
+
         double seeVals[6] = {20000.0, 650.0, 400.0, 200.0, 150.0, 100.0};
 
         Engine();
@@ -78,5 +83,7 @@ class Engine : public Position{
         int search(uint32_t, int, uint64_t, bool);
 
         ~Engine();
+
+        //bool special;
 };
 

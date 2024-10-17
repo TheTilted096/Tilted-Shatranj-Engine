@@ -228,16 +228,25 @@ int Position::halfMoveCount(){
     return chm[thm];
 }
 
-int Position::countReps(){
+int Position::countReps(int ply){
+    /*
     int rind = thm;
     int reps = 1;
     do {
         rind -= 2;
         reps += (zhist[thm] == zhist[rind]);
     } while (chm[rind] and (rind >= 0));
+    */
+
+    int reps = 1;
+    int rind = thm;
+
+    while ((rind > 0) and chm[rind]){
+        rind -= 2;
+        reps += ((zhist[thm] == zhist[rind]) * (1 + (rind >= thm - ply)));
+    }
 
     return reps;
-    
 }
 
 /*
@@ -500,6 +509,30 @@ int Position::fullMoveGen(int ply, bool cpex){
     return totalMoves;
 }
 
+/*
+int Position::moveEval(Move move){
+    uint8_t startsquare = move & 63U;
+    uint8_t endsquare = (move >> 6) & 63U;
+
+    uint8_t typeMoved = (move >> 16) & (7U);
+    uint8_t typeEnded = (move >> 20) & (7U);
+
+    bool capturing = (move >> 12) & (1U);
+    uint8_t captureType = (move >> 13) & (7U);
+    
+    int psb = mps[typeEnded][endsquare ^ (!toMove * 56)] - mps[typeMoved][startsquare ^ (!toMove * 56)];
+    int csb = capturing * mps[captureType][endsquare ^ (toMove * 56)];
+
+    int epsb = eps[typeEnded][endsquare ^ (!toMove * 56)] - eps[typeMoved][startsquare ^ (!toMove * 56)];
+    int ecsb = capturing * eps[captureType][endsquare ^ (toMove * 56)];
+
+    int mdiff = scores[toMove] + mobil[toMove] - scores[!toMove] - mobil[!toMove] + psb + csb;
+    int ediff = eScores[toMove] + emobil[toMove] - eScores[!toMove] - emobil[!toMove] + epsb + ecsb;
+
+    return (mdiff * inGamePhase + ediff * (Position::totalGamePhase - inGamePhase)) / Position::totalGamePhase;
+}
+*/
+
 void Position::makeMove(Move move, bool ev){
     uint8_t startsquare = move & 63U;
     uint8_t endsquare = (move >> 6) & 63U;
@@ -629,7 +662,7 @@ uint64_t Position::perft(int depth, int ply){
 
         if (ply == 0) {
             std::cout << moveToAlgebraic(moves[ply][i]) << ": " << additional << '\n';
-             printMoveAsBinary(moves[ply][i]);
+            // printMoveAsBinary(moves[ply][i]);
         }
 
         pnodes += additional;

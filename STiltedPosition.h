@@ -489,7 +489,7 @@ class Position : public Bitboards{
                 
         Position();
 
-        int countReps();
+        int countReps(int);
         int evaluate();
         int evaluateScratch();
 
@@ -502,6 +502,7 @@ class Position : public Bitboards{
         int fullMoveGen(int, bool);
         uint64_t perft(int, int);
 
+        //int moveEval(Move); 
         void makeMove(Move, bool);
         void unmakeMove(Move, bool);
         void passMove();

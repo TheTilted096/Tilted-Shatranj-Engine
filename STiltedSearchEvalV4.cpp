@@ -264,6 +264,7 @@ Engine::~Engine(){
 }
 
 void Engine::showZobrist(){
+    /*
     std::cout << "Tranposition Table:\n";
     for (int k = 1; k < 15; k++){
         for (int i = 0; i < 0xFFFFF; i++){
@@ -272,6 +273,7 @@ void Engine::showZobrist(){
             }
         }
     }
+    */
     std::cout << "\nZobrist History + Last 20 Bits\n";
     for (int j = 0; j < thm + 1; j++){
         std::cout << "ZH " << j << ": " << zhist[j] << "\tIndex: " << (zhist[j] & 0xFFFFF) << '\n';
@@ -675,7 +677,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     int score = -29000;
 
     //3-Fold Check
-    int reps = countReps();
+    int reps = countReps(ply);
     if (reps > 2){
         return 0;
     }
@@ -689,31 +691,43 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
         return quiesce(alpha, beta, 0);
     }
 
+    bool isPV = (beta - alpha > 1);
+
     //Transposition Table Probing
     int ttindex = zhist[thm] & 0xFFFFF;
     if ((zhist[thm] == ttable[ttindex].eHash) and (ttable[ttindex].eDepth >= depth)
         and (ply > 0) and (reps == 1)){
         
         score = ttable[ttindex].eScore;
+        //if (special){ 
+        //    std::cout << "Consulting TT...\n";
+        //    ttable[ttindex].print();
+        //}
 
         if (ttable[ttindex].enType == 1){ //PV Node
+            //if (special){ std::cout << "TT PV Return @ depth " << depth << " from " << moveToAlgebraic(thisLine[ply - 1]) << '\n'; }
             return score;
         }
         if ((ttable[ttindex].enType == 2) and (score >= beta)){ //Cut
+            //if (special){ std::cout << "TT Beta Return @ depth " << depth << " from " << moveToAlgebraic(thisLine[ply - 1]) << '\n'; }
             return score;
         }
         if ((ttable[ttindex].enType == 3) and (score <= alpha)){ //All
+            //if (special){ std::cout << "TT Alpha Return @ depth " << depth << " from " << moveToAlgebraic(thisLine[ply - 1]) << '\n'; }
             return score;
         }
     }
 
     bool inCheck = isChecked(toMove);
 
+    double margin, fmargin;
+
     //Reverse Futility Pruning
-    int be = evaluate();
-    double margin = rfpCoef[0] + rfpCoef[1] * depth;
-    if ((ply > 0) and (abs(beta) < 28000) and (be - margin >= beta) and !inCheck){
-        return be - margin;
+    //position is so good that there is presumably a move that does not crash eval 
+    int presentEval = evaluate();
+    margin = rfpCoef[0] + rfpCoef[1] * depth;
+    if ((ply > 0) and (abs(beta) < 28000) and (presentEval - margin >= beta) and !inCheck){
+        return presentEval - margin;
     }
         
     //Null - Move Pruning
@@ -723,7 +737,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
 
     if (nmp and (ply != 0) and (depth > 1) and !inCheck){
         passMove();
-        score = -alphabeta(-beta, -alpha, depth - 2, ply + 1, nmp);
+        score = -alphabeta(-beta, -alpha, std::max(0, (7 * depth / 10) - 1), ply + 1, nmp);
         unpassMove();
         if (score >= beta){
             return beta;
@@ -732,37 +746,6 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
 
     int numMoves = fullMoveGen(ply, 0);
     
-    //stilted-26-zfix
-    /*
-    for (int ll = 0; ll < numMoves; ll++){ //for each move, score it
-        if (moves[ply][ll] == ttable[ttindex].eMove){ //TT-move has score 0
-            mprior[ply][ll] = 0;
-        } else if ((moves[ply][ll] >> 12U) & 1U){ //captures have value 512 * victim - aggressor
-            mprior[ply][ll] = (((moves[ply][ll] >> 13U) & 7U) << 9U) - ((moves[ply][ll] >> 16U) & 7U);
-        } else if ((moves[ply][ll] == killers[ply][0]) or (moves[ply][ll] == killers[ply][1])){
-            mprior[ply][ll] = 10000; //killers have value 10000
-        } else {
-            mprior[ply][ll] = 100000000 - ((moves[ply][ll] >> 16U) & 7U) -
-                 historyTable[toMove][(moves[ply][ll] >> 16U) & 7U][(moves[ply][ll] >> 6U) & 63U]; //non-captures have value 20000
-        }
-    }
-    */
-
-    /*
-    for (int ll = 0; ll < numMoves; ll++){ //for each move, score it
-        if (moves[ply][ll] == ttable[ttindex].eMove){ //TT-move has score 0
-            mprior[ply][ll] = (1 << 30);
-        } else if ((moves[ply][ll] >> 12U) & 1U){ //captures have value 512 * victim - aggressor
-            mprior[ply][ll] = (1 << 20) + ((moves[ply][ll] >> 16) & 7U) - (((moves[ply][ll] >> 13) & 7U) << 9);
-        } else if ((moves[ply][ll] == killers[ply][0]) or (moves[ply][ll] == killers[ply][1])){
-            mprior[ply][ll] = (1 << 16); //killers have value 10000
-        } else {
-            mprior[ply][ll] = ((moves[ply][ll] >> 16U) & 7U) +
-                 historyTable[toMove][(moves[ply][ll] >> 16U) & 7U][(moves[ply][ll] >> 6U) & 63U]; //non-captures have value 20000
-        }
-    }
-    */
-
     for (int ll = 0; ll < numMoves; ll++){
         if (moves[ply][ll] == ttable[ttindex].eMove){
             mprior[ply][ll] = (1 << 30);
@@ -773,48 +756,90 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
         }
     }
 
-    
     sortMoves(numMoves, ply);
 
     Move localBestMove = 0; //for TT updating
-    //bool isAllNode = true;
-    bool searchPv = true;
+    bool isAllNode = true;
+    //bool extended = false;
 
     int lmrReduce;
+    int searchedQuiets = 0;
     bool boringMove;
+    bool capturing, promoting;
+
+    fmargin = fpCoef[0] + fpCoef[1] * depth;
 
     for (int i = 0; i < numMoves; i++){
         //pickMove(i, numMoves, ply);
         //if (ply == 0) { std::cout << "considering: " << moveToAlgebraic(moves[ply][i]) << '\t' << mprior[ply][i] << '\n';};
         //printMoveAsBinary(moves[ply][i]);
+
+        //if (special){
+        //    if (ply == 0){ std::cout << "\n == ROOT CALL MOVE == \n"; }
+        //    std::cout << "Ply: " << ply << "    DepthAt: " << depth << "    Move: " << moveToAlgebraic(moves[ply][i]);
+        //    std::cout << "    isAllNode: " << isAllNode;
+        //}
+        
+        promoting = (moves[ply][i] >> 19) & 1U;
+        capturing = (moves[ply][i] >> 12) & 1U;
+
         makeMove(moves[ply][i], true); 
+        //thisLine[ply] = moves[ply][i];
         endHandle();
 
         if (isChecked(!toMove) or kingBare()){
             //std::cout << "check: " << moveToAlgebraic(moves[ply][i]) << '\n';
+            ////if (special) { std::cout << "Legality Prune\n"; } 
             unmakeMove(moves[ply][i], true);
             continue;
         }
 
+        if ((ply > 0) and !capturing and (abs(alpha) < 28000) and !inCheck){
+            //LMP goes here
+            if (!isPV and (depth < 4) and 
+                (searchedQuiets >= lmpCoef[0] + lmpCoef[1] * depth * depth)){
+                unmakeMove(moves[ply][i], true);
+                //if (special) { std::cout << "Late Move Prune\n"; } 
+                continue;
+            }
+
+            //Futility Pruning
+            if (-evaluate() + fmargin < alpha){
+                unmakeMove(moves[ply][i], true);
+                //if (special) { std::cout << "Futility Prune\n"; } 
+                continue;
+            }
+
+            searchedQuiets++;
+        }
+        
         //score = -alphabeta(-beta, -alpha, depth - 1, ply + 1, nmp);
 
-        //quietMove = !isInteresting(moves[ply][i], inCheck);
+        //boringMove = !(capturing or promoting or inCheck);
+        //quietMoves += boringMove; // quiet move if not boring move
+        //quietMoves += !(inCheck or capturing);
+
         // PVS, LMR
-        if (searchPv){
+        if (isAllNode){
+            //if (special){ std::cout << "    NewDepth (PV): " << depth - 1 << '\n'; }
             score = -alphabeta(-beta, -alpha, depth - 1, ply + 1, nmp);
         } else {
             //score = -alphabeta(-alpha-1, -alpha, depth - 1, ply + 1, nmp); bare PVS
             
             lmrReduce = lmrReduces[depth][i];
-            boringMove = (depth > 1) and !(((moves[ply][i] >> 12) & 1U) or ((moves[ply][i] >> 19) & 1U) or isChecked(toMove) or inCheck);
+            boringMove = (depth > 1) and !(capturing or promoting or isChecked(toMove) or inCheck);
             lmrReduce *= boringMove;
-            
-            score = -alphabeta(-alpha-1, -alpha, std::max(depth-1-lmrReduce, 0), ply + 1, nmp);
 
-            if (score > alpha and lmrReduce > 0) { 
-                score = -alphabeta(-alpha-1, -alpha, depth-1, ply+1, nmp);
+            //if (special){ std::cout << "    NewDepth (LMR): " << std::max(depth - 1 - lmrReduce, 0) << '\n'; }
+            
+            score = -alphabeta(-alpha-1, -alpha, std::max(depth - 1 - lmrReduce, 0), ply + 1, nmp);
+
+            if (score > alpha and lmrReduce > 0) {
+                //if (special){ std::cout << "LMR Re-Search @ depth " << depth - 1 << '\n'; } 
+                score = -alphabeta(-alpha-1, -alpha, depth - 1, ply + 1, nmp);
             }
             if (score > alpha){
+                //if (special){ std::cout << "LMR Re-Search Full Window\n"; } 
                 score = -alphabeta(-beta, -alpha, depth - 1, ply + 1, nmp);
             }
         }
@@ -824,6 +849,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
 
         if (score >= beta){ //beta cutoff, cut node (2)
             ttable[ttindex].update(score, 2, depth, moves[ply][i], thm);
+            //if (special){ std::cout << "Fail-High: " << score << '\n'; }
             //std::cout << "cut " << moveToAlgebraic(moves[ply][i]) << '\n';
             
             //Killer Move Updating and History Updating
@@ -847,8 +873,10 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
             }
             //PV - Nodes (1)
             localBestMove = moves[ply][i];
-            searchPv = false;
+            isAllNode = false;
             alpha = score;
+
+            //if (special){ std::cout << "PV: " << alpha << '\n'; }
         }
     }
 
@@ -861,11 +889,13 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     }
     
     // TT-updating
-    if (searchPv){
+    if (isAllNode){
         ttable[ttindex].update(alpha, 3, depth, 0, thm);
     } else {
         ttable[ttindex].update(alpha, 1, depth, localBestMove, thm);
     }
+
+    //if (special and ply == 0){ std::cout << "Best Move: " << moveToAlgebraic(localBestMove) << '\n'; }
 
     return alpha;
 }
@@ -907,12 +937,13 @@ int Engine::search(uint32_t thinkTime, int mdepth, uint64_t maxNodes, bool outpu
             prevEval = cbEval;
             int aspa = 0, aspb = 0;
 
+            //if (special) { std::cout << "\n\n === BEGINNING DEPTH " << i << " SEARCH === \n\n"; }
             while (windowFail){
                 alpha = prevEval - aspWins[aspa];
                 beta = prevEval + aspWins[aspb];
                 
+                //if (special){ std::cout << '[' << alpha << " , " << beta << "]\n"; }
                 cbEval = alphabeta(alpha, beta, i, 0, false); //ensure nmp = 1 when ply = 0
-                //std::cout << '[' << alpha << " , " << beta << "]\n";
 
                 if (cbEval <= alpha){
                     aspa++;
@@ -922,6 +953,8 @@ int Engine::search(uint32_t thinkTime, int mdepth, uint64_t maxNodes, bool outpu
                     windowFail = false;
                 }
             }
+
+            //if (special) { std::cout << "\n\n === FINISHED DEPTH " << i << " SEARCH === \n\n"; }
 
             cbMove = bestMove;
             if (output){ std::cout << "info depth " << i << " nodes " <<
