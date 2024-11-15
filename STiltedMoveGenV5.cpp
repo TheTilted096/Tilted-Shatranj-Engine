@@ -218,8 +218,8 @@ void Position::beginZobristHash(){
 void Position::eraseHistoryTable(){
     for (int i = 0; i < 6; i++){
         for (int j = 0; j < 64; j++){
-            historyTable[0][i][j] = -(1 << 20);
-            historyTable[1][i][j] = -(1 << 20);
+            historyTable[0][i][j] = -historyCap;
+            historyTable[1][i][j] = -historyCap;
         }
     }
 }

@@ -21,6 +21,7 @@ class Position : public Bitboards{
         uint64_t zhist[1024];
         
         int historyTable[2][6][64];
+        int historyCap = 1048576;
         int inGamePhase;
 
         Bitboard atktbl[2][5];

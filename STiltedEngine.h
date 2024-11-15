@@ -37,6 +37,7 @@ class Engine : public Position{
     Move bestMove;
 
     uint64_t mnodes;
+    uint64_t nodesForever;
 
     TTentry* ttable;
     Move killers[64][2];
@@ -59,10 +60,10 @@ class Engine : public Position{
     int alphabeta(int, int, int, int, bool);
 
         double rfpCoef[2] = {3.0, 67.0};
-        double aspWins[5] = {73.5, 120.0, 240.0, 480.0, 40000.0};
+        double aspWins[5] = {73.5, 120.0, 240.0, 480.0, 100000.0};
 
         int lmrReduces[64][128]; 
-        double lmrCoef[2] = {-0.1, 0.4};
+        double lmrCoef[2] = {0.4, 0.4};
 
         double lmpCoef[2] = {10.0, 1.0};
         double fpCoef[2] = {0.0, 100.0};
@@ -82,8 +83,10 @@ class Engine : public Position{
         double preciseQuiesce(double, double, int);
         int search(uint32_t, int, uint64_t, bool);
 
+        void bench();
+
         ~Engine();
 
-        //bool special;
+        bool special;
 };
 
