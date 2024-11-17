@@ -7,7 +7,7 @@ SOURCES := STiltedDriverV3.cpp STiltedMoveGenV5.cpp STiltedSearchEvalV4.cpp
 
 CXX :=  clang++
 
-CXXFLAGS := -O2 -Wall -static -g -march=native
+CXXFLAGS := -O2 -Wall -static -g -march=native -pthread
 
 SUFFIX := .exe
 

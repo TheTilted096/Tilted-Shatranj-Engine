@@ -697,6 +697,16 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     }
 
     bool isPV = (beta - alpha > 1);
+
+    //Mate Distance Pruning
+    if (!isPV){
+        int malpha = std::max(alpha, -29000 + ply);
+        int mbeta = std::min(beta, 29000 - ply - 1);
+
+        if (malpha >= mbeta){
+            return malpha;
+        }
+    }
                                                                                                                                                                                                                                                                                                         
     //Transposition Table Probing
     int ttindex = zhist[thm] & 0xFFFFF;
@@ -785,11 +795,12 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
         }
         
         /*
-        if (moves[ply][ll] == killers[ply][0]){
+        if (moves[ply][ll] == killers[ply][1]){
             mprior[ply][ll] = (1 << 18);
+            continue;
         }
 
-        if (moves[ply][ll] == killers[ply][1]){
+        if (moves[ply][ll] == killers[ply][0]){
             mprior[ply][ll] = (1 << 16);
         }
         */
@@ -797,7 +808,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
         if ((moves[ply][ll] == killers[ply][1]) or (moves[ply][ll] == killers[ply][0])){
             mprior[ply][ll] = (1 << 16);
         }  
-        
+                
     }
 
     sortMoves(numMoves, ply);
