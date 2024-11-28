@@ -637,6 +637,9 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     int ttdepth = ttable[ttindex].eDepth;
     Move ttmove = 0U;
 
+    bool canTTeval = false;
+    int staticEval = evaluate();
+
     if (ttable[ttindex].eHash == zhist[thm]){
         score = ttable[ttindex].eScore;
         ttmove = ttable[ttindex].eMove;
@@ -654,6 +657,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
             }
         }
         
+        canTTeval = (ntype = 1) or ((ntype == 3) and (score < staticEval)) or ((ntype == 2) and (score > staticEval));
     }
 
     bool inCheck = isChecked(toMove);
@@ -662,7 +666,8 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
 
     //Reverse Futility Pruning
     //position is so good that there is presumably a move that does not crash eval 
-    int presentEval = evaluate();
+    int presentEval = canTTeval ? score : staticEval;
+
     margin = rfpCoef[0] + rfpCoef[1] * depth;
     if ((ply > 0) and (abs(beta) < 28000) and (presentEval - margin >= beta) and !inCheck){
         return presentEval - margin;
@@ -675,7 +680,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     //nmp enabled if both sides have material and there was no nmp before
     //nmp disabled if both sides dont have material or there was nmp before
 
-    if (nmp and (ply != 0) and (depth > 1) and !inCheck /*and (presentEval >= beta)*/){
+    if (nmp and (ply != 0) and (depth > 1) and !inCheck and (presentEval >= beta)){
         passMove();
         score = -alphabeta(-beta, -alpha, std::max(0, (7 * depth / 10) - 1), ply + 1, nmp);
         unpassMove();
