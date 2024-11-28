@@ -308,11 +308,6 @@ void Engine::eraseKillers(){
 }
 
 void Engine::copyEval(EvalVars e){
-    /*
-    std::cout << "attempt copyEval\n";
-    std::cout << e.rc << '\n';
-    std::cout << e.aw << '\n';
-    */
     if (e.rc != nullptr){
         //std::cout << "rfpparams copied\n";
         rfpCoef[0] = e.rc[0];
@@ -368,77 +363,6 @@ void Engine::pickMove(int si, int ei, int ply){
     std::swap(mprior[ply][ibest], mprior[ply][si]);
     std::swap(moves[ply][ibest], moves[ply][si]);
 }
-
-/*
-bool Engine::see(Move mv, double min){
-    uint8_t stsq = mv & 63U; //start square 
-    uint8_t edsq = (mv >> 6) & 63U; //end square
-    bool bkrk = (1ULL << edsq) & 0xFF000000000000FFULL; //square is on back rank
-    bool prmt = (mv >> 19) & 1U; //is promoting
-    const double prgn = seeVals[3] - seeVals[5];
-
-    uint8_t ao = (mv >> 16) & 7U;  // initial agressor
-    uint8_t vo = (mv >> 13) & 7U;  // initial victim
-
-    //double gain = seeVals[vo]; // gain begins as initial victim from perspective of toMove (aggressor)
-    seeGains[0] = seeVals[vo] + prmt * prgn;
-    double stdn = seeVals[ao - (prmt << 1)]; //piece standing on square
-
-    if (seeGains[0] - stdn >= min){ //if piece was hanging
-        return true;
-    }
-
-    //initial material check didn't work, time to search all the way
-
-    Bitboard rks = pieces[1]; //save rook bitboard (rook bits are removed)
-    Bitboard occ = sides[0] | sides[1]; //occupied squares
-
-    bool istm = !toMove; // internal side to move
-
-    uint32_t attl[2] = {0U, 0U}; //u32 that represent attackers
-    int slva[2]; // index of current least valued aggressor
-
-    //get attackers and insert them into the u32 (as a list)
-    attl[0] |= (__builtin_popcountll(plt[1][edsq] & pieces[5] & sides[0]) << 20);
-    attl[1] |= (__builtin_popcountll(plt[0][edsq] & pieces[5] & sides[1]) << 20);
-
-    Bitboard rl;
-    for (int i = 4; i > 1; i--){
-        rl = llt[i][edsq] & pieces[i];
-        attl[0] |= (__builtin_popcountll(rl & sides[0]) << (i << 2));
-        attl[1] |= (__builtin_popcountll(rl & sides[1]) << (i << 2));
-    }
-    
-    Bitboard rlkp = RookBoards[RookOffset[edsq] + _pext_u64(occ, RookMasks[edsq])] & pieces[1]; //rook-look up
-    attl[0] |= (__builtin_popcountll(rlkp & sides[0]) << 4);
-    attl[1] |= (__builtin_popcountll(rlkp & sides[1]) << 4);
-
-    rl = llt[0][edsq] & pieces[0];
-    attl[0] |= (__builtin_popcountll(rl & sides[0]));
-    attl[1] |= (__builtin_popcountll(rl & sides[1]));    
-
-    if ((seeGains[0] > min) and (attl[!toMove] == 0U)){ //if hanging
-        return true;
-    }
-
-    //before playing own move:
-    // winning if
-    // (gain > min)  OR  (opponent has no attackers AND gain + stdn > min)
-
-    // losing if
-    // (no attackers AND gain < min) or (has attackers AND gain + stdn < min)
-
-    //istm will also keep track of the winning side
-
-    while (true){
-
-    }
-
-
-    
-    return 0;
-}
-*/
 
 /*
 Move Representation:
@@ -732,31 +656,6 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
         
     }
 
-    /*
-    if ((zhist[thm] == ttable[ttindex].eHash) and (ttable[ttindex].eDepth >= depth)
-        and !(isPV and (ply < 2)) and (ply > 0) and (reps == 1)){
-        
-        score = ttable[ttindex].eScore;
-        // if (special){ 
-        //    std::cout << "Consulting TT...\n";
-        //    ttable[ttindex].print();
-        //}
-
-        if (ttable[ttindex].enType == 1){ //PV Node
-            // if (special){ std::cout << "TT PV Return @ depth " << depth << '\n';} // " from " << moveToAlgebraic(thisLine[ply - 1]) << '\n'; }
-            return score;
-        }
-        if ((ttable[ttindex].enType == 2) and (score >= beta)){ //Cut
-            // if (special){ std::cout << "TT Beta Return @ depth " << depth << '\n';} //" from " << moveToAlgebraic(thisLine[ply - 1]) << '\n'; }
-            return score;
-        }
-        if ((ttable[ttindex].enType == 3) and (score <= alpha)){ //All
-            // if (special){ std::cout << "TT Alpha Return @ depth " << depth << '\n';} // << " from " << moveToAlgebraic(thisLine[ply - 1]) << '\n'; }
-            return score;
-        }
-    }
-    */
-
     bool inCheck = isChecked(toMove);
 
     double margin, fmargin;
@@ -815,7 +714,6 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
 
     Move localBestMove = 0; //for TT updating
     bool isAllNode = true;
-    //bool extended = false;
 
     int lmrReduce;
     int searchedQuiets = 0;
@@ -825,7 +723,6 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
     fmargin = fpCoef[0] + fpCoef[1] * depth;
 
     for (int i = 0; i < numMoves; i++){
-        //pickMove(i, numMoves, ply);
         //if (ply == 0) { std::cout << "considering: " << moveToAlgebraic(moves[ply][i]) << '\t' << mprior[ply][i] << '\n';};
         //printMoveAsBinary(moves[ply][i]);
 
@@ -871,10 +768,6 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
         }
         
         //score = -alphabeta(-beta, -alpha, depth - 1, ply + 1, nmp);
-
-        //boringMove = !(capturing or promoting or inCheck);
-        //quietMoves += boringMove; // quiet move if not boring move
-        //quietMoves += !(inCheck or capturing);
 
         // PVS, LMR
         if (isAllNode){
@@ -948,15 +841,6 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
         score += ply;
         return score;
     }
-    
-    // TT-updating
-    /*
-    if (isAllNode){
-        ttable[ttindex].update(alpha, 3, depth, 0, thm);
-    } else {
-        ttable[ttindex].update(alpha, 1, depth, localBestMove, thm);
-    }
-    */
 
     ttable[ttindex].update(bestScore, 1 + 2 * isAllNode, depth, localBestMove, thm);
 
@@ -1084,9 +968,6 @@ void Engine::bench(){
 
     auto benchEnd = std::chrono::steady_clock::now();
     auto benchDur = std::chrono::duration_cast<std::chrono::milliseconds>(benchEnd - benchStart).count();
-
-    //((dur == 0) ? 0 : ((int) ((float) nodes * 1000 / dur))) << '\n';
-
 
     std::cout << nodesForever << " nodes " << ((int) ((float) nodesForever * 1000 / benchDur)) << " nps\n";    
 }
