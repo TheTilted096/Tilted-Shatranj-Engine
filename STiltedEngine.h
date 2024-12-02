@@ -40,7 +40,7 @@ class Engine : public Position{
     uint64_t nodesForever;
 
     TTentry* ttable;
-    Move killers[64][2];
+    Move killers[64];
     
     //Move thisLine[64];
 
