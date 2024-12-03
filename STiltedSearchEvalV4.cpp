@@ -302,8 +302,7 @@ void Engine::eraseTransposeTable(){
 
 void Engine::eraseKillers(){
     for (int i = 0; i < 64; i++){
-        killers[i][0] = 0U;
-        killers[i][1] = 0U;
+        killers[i] = 0U;
     }
 }
 
@@ -704,7 +703,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
         }
         */
         
-        if ((moves[ply][ll] == killers[ply][1]) or (moves[ply][ll] == killers[ply][0])){
+        if (moves[ply][ll] == killers[ply]){
             mprior[ply][ll] = (1 << 16);
         }  
                 
@@ -804,8 +803,8 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
             
             //Killer Move Updating and History Updating
             if ((moves[ply][i] & 4096U) ^ (4096U)){
-                killers[ply][0] = killers[ply][1];
-                killers[ply][1] = moves[ply][i];
+                //killers[ply][0] = killers[ply][1];
+                killers[ply] = moves[ply][i];
 
                 uint8_t pstp = (moves[ply][i] >> 16) & 7U;
                 uint8_t edsq = (moves[ply][i] >> 6) & 63U;
