@@ -641,7 +641,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
         ttmove = ttable[ttindex].eMove;
 
         int ntype = ttable[ttindex].enType;
-        if ((ttdepth >= depth) and !(isPV and (ply < 2)) and (reps == 1)){
+        if ((ttdepth >= depth) and !(isPV /*and (ply < 2)*/) and (reps == 1)){
             if (ntype == 1){
                 return score;
             }
@@ -757,11 +757,13 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
             }
 
             //Futility Pruning
+            /*
             if ((alpha < 28000) and (-evaluate() + fmargin < alpha)){
                 unmakeMove(moves[ply][i], true);
                 // if (special) { std::cout << "\nFutility Prune\n"; } 
                 continue;
             }
+            */
 
             searchedQuiets++;
         }
@@ -769,7 +771,7 @@ int Engine::alphabeta(int alpha, int beta, int depth, int ply, bool nmp){
         //score = -alphabeta(-beta, -alpha, depth - 1, ply + 1, nmp);
 
         // PVS, LMR
-        if (isAllNode){
+        if (i == 0){ //first move, formerly isAllNode
             // { std::cout << "    NewDepth (PV): " << depth - 1 << '\n'; }
             score = -alphabeta(-beta, -alpha, depth - 1, ply + 1, nmp);
         } else {
